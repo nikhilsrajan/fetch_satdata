@@ -1,0 +1,6 @@
+[submodule "rsutils"]
+	path = rsutils
+	url = https://github.com/nikhilsrajan/rsutils.git
+[submodule "cdseutils"]
+	path = cdseutils
+	url = https://github.com/nikhilsrajan/cdseutils.git
