@@ -275,7 +275,7 @@ def chunkwise_download_files_and_update_catalog(
             download_successes = _download_successes,
             sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
         )
-        print(f'Download status: {downloads_done} / {N} -- Failed: {N - failed_download_count}')
+        print(f'Download status: {downloads_done} / {N} -- Failed: {failed_download_count}')
     return successful_download_count
     
 
