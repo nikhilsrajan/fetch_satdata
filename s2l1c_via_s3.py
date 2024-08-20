@@ -252,6 +252,7 @@ def chunkwise_download_files_and_update_catalog(
 ):
     N = len(s3paths)
     successful_download_count = 0
+    downloads_done = 0
     for i in range(0, N, chunksize):
         _s3paths = s3paths[i:i+chunksize]
         _download_filepaths = download_filepaths[i:i+chunksize]
@@ -264,6 +265,7 @@ def chunkwise_download_files_and_update_catalog(
             logger = logger,
         )
         successful_download_count += sum(_download_successes)
+        downloads_done += chunksize
         update_catalog(
             catalog_gdf = catalog_gdf,
             s3paths = _s3paths,
@@ -271,6 +273,7 @@ def chunkwise_download_files_and_update_catalog(
             download_successes = _download_successes,
             sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
         )
+        print(f'Download status: {downloads_done} / {N} -- Failed: {N - successful_download_count}')
     return successful_download_count
     
 
@@ -402,7 +405,7 @@ def download_sentinel2_l1c_tiles(
         bands = bands,
     )
 
-    print('Downloading files:')
+    print(f'Downloading {len(s3paths)} files:')
     successful_download_count = \
     chunkwise_download_files_and_update_catalog(
         catalog_gdf = catalog_gdf,
