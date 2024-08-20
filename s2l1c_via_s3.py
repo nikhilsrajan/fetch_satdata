@@ -274,7 +274,6 @@ def chunkwise_download_files_and_update_catalog(
     return successful_download_count
     
 
-
 def download_sentinel2_l1c_tiles(
     cdse_creds:cdseutils.mydataclasses.Credentials,
     catalog_save_folderpath:str,
@@ -419,5 +418,4 @@ def download_sentinel2_l1c_tiles(
     print(f'Successful downloads: {successful_download_count} / {len(s3paths)}')
 
     return successful_download_count, len(s3paths)
-
 
