@@ -265,8 +265,9 @@ def chunkwise_download_files_and_update_catalog(
             overwrite = overwrite,
             logger = logger,
         )
-        successful_download_count += sum(_download_successes)
-        failed_download_count += chunksize - successful_download_count
+        chunk_successful_download_count = sum(_download_successes)
+        successful_download_count += chunk_successful_download_count
+        failed_download_count += chunksize - chunk_successful_download_count
         downloads_done += chunksize
         update_catalog(
             catalog_gdf = catalog_gdf,
