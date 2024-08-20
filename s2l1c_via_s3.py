@@ -265,10 +265,11 @@ def chunkwise_download_files_and_update_catalog(
             overwrite = overwrite,
             logger = logger,
         )
+        current_chunk_size = len(_s3paths)
         chunk_successful_download_count = sum(_download_successes)
         successful_download_count += chunk_successful_download_count
-        failed_download_count += chunksize - chunk_successful_download_count
-        downloads_done += chunksize
+        failed_download_count += current_chunk_size - chunk_successful_download_count
+        downloads_done += current_chunk_size
         update_catalog(
             catalog_gdf = catalog_gdf,
             s3paths = _s3paths,
