@@ -216,7 +216,7 @@ def update_catalog(
         local_band_filename = parsed_band_filename['band'] + parsed_band_filename['ext']
 
         id_to_download_files[_id].append(local_band_filename)
-        id_to_download_folderpath[_id] = os.path.split(download_filepath)[0]
+        id_to_download_folderpath[_id] = os.path.abspath(os.path.split(download_filepath)[0])
 
     _ids = id_to_download_files.keys()
     selected_catalog_gdf = catalog_gdf[catalog_gdf['id'].isin(_ids)]
