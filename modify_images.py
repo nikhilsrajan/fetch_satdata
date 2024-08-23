@@ -99,11 +99,13 @@ def crop(
     dst_filepath:str,
     shapes_gdf:gpd.GeoDataFrame,
     nodata = None,
+    all_touched:bool = False,
 ):
     out_ndarray, out_meta = rsutils.utils.crop_tif(
         src_filepath = src_filepath,
         shapes_gdf = shapes_gdf,
         nodata = nodata,
+        all_touched = all_touched,
     )
 
     with rasterio.open(dst_filepath, 'w', **out_meta) as dst:

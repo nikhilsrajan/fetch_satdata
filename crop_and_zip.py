@@ -70,9 +70,9 @@ def crop_and_zip(
     os.makedirs(out_folderpath, exist_ok=True)
 
     sequence = [
-        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata)),
+        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
         (modify_images.reproject, dict(dst_crs=dst_crs)),
-        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata)),
+        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
     ]
 
     satellite_folderpath = os.path.abspath(satellite_folderpath)
