@@ -105,11 +105,12 @@ def crop_and_zip(
     )
     band_filepaths_df.to_csv(os.path.join(out_folderpath, 'catalog.csv'), index=False)
 
-    shutil.make_archive(
+    final_zip_filepath = shutil.make_archive(
         zip_filepath,
         'zip',
         out_folderpath,
     )
 
-    return shutil.rmtree(out_folderpath)
+    shutil.rmtree(out_folderpath)
 
+    return final_zip_filepath

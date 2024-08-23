@@ -1,3 +1,4 @@
+import os
 import geopandas as gpd
 import datetime
 
@@ -27,7 +28,7 @@ if __name__ == '__main__':
     zip_filepath = sys.argv[5]
     njobs = int(sys.argv[6])
 
-    crop_and_zip.crop_and_zip(
+    zip_filepath = crop_and_zip.crop_and_zip(
         shapes_gdf = shapes_gdf,
         catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
         startdate = startdate,
@@ -38,3 +39,5 @@ if __name__ == '__main__':
         nodata = NODATA,
         njobs = njobs,
     )
+
+    print(f'Outputs zipped and saved at: {os.path.abspath(zip_filepath)}')
