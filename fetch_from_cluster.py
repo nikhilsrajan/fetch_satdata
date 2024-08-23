@@ -6,9 +6,9 @@ import multiprocessing as mp
 import tqdm
 import datetime
 import pandas as pd
-import shapely.ops
 
 import sshcreds
+import create_stack
 
 
 
@@ -43,6 +43,8 @@ def download_file_from_cluster(
     os.makedirs(download_folderpath, exist_ok=True)
 
     if not os.path.exists(download_filepath) or overwrite:
+        temp_download_filepath = download_filepath + '.temp'
+
         # https://medium.com/@keagileageek/paramiko-how-to-ssh-and-file-transfers-with-python-75766179de73
         ssh_client = paramiko.SSHClient()
 
@@ -59,10 +61,12 @@ def download_file_from_cluster(
 
         ftp_client.get(
             remotepath = remotepath,
-            localpath = download_filepath,
+            localpath = temp_download_filepath,
         )
 
         ftp_client.close()
+
+        os.rename(temp_download_filepath, download_filepath)
     
     return download_filepath
 
@@ -94,7 +98,7 @@ def download_files_from_cluster(
     njobs:int = 16,
 ):
     if len(remotepaths) != len(download_filepaths):
-        raise ValueError('Size of s3paths and download_filepaths do not match.')
+        raise ValueError('Size of remotepaths and download_filepaths do not match.')
     
     download_file_from_cluster_by_tuple_partial = functools.partial(
         _download_file_from_cluster_by_tuple,
@@ -128,15 +132,17 @@ def remotepath_to_localpath(
         local_root_path,
         *remotepath.removeprefix(remote_root_path).split('/')
     )
-    
 
-def query_sentinel2_catalog(
+
+def download_intersecting_sentinel2_tiles_from_cluster(
     shapes_gdf:gpd.GeoDataFrame,
     startdate:datetime,
     enddate:datetime,
     sshcreds:sshcreds.SSHCredentials,
     satellite_folderpath:str,
+    bands:list[str],
     overwrite_catalog:bool=False,
+    njobs:int = 4,
 ):
     catalog_filepath = remotepath_to_localpath(
         remotepath = FILEPATH_SENTINEL2_CATALOG,
@@ -151,119 +157,36 @@ def query_sentinel2_catalog(
         overwrite = overwrite_catalog,
     )
 
-    catalog_gdf = gpd.read_file(catalog_filepath)
-
-    union_shape = shapely.ops.unary_union(
-        shapes_gdf.to_crs(catalog_gdf.crs)['geometry']
-    )
-    union_shape_gdf = gpd.GeoDataFrame(
-        data = {'geometry': [union_shape]},
-        crs = catalog_gdf.crs,
-    )
-
-    dt_filtered_catalog_gdf = catalog_gdf[
-        (catalog_gdf['timestamp'] >= pd.Timestamp(startdate, tz='UTC'))
-        & (catalog_gdf['timestamp'] <= pd.Timestamp(enddate, tz='UTC'))
-    ].reset_index(drop=True)
-
-    filtered_catalog_gdf = \
-    gpd.overlay(
-        dt_filtered_catalog_gdf,
-        union_shape_gdf,
-    )
-
-    filtered_catalog_gdf['area_contribution'] = filtered_catalog_gdf['geometry'].apply(
-        lambda x: x.area / union_shape.area * 100 # area contribution in terms of %
-    )
-
-    return filtered_catalog_gdf
-
-
-def download_intersecting_sentinel2_tiles_from_cluster(
-    shapes_gdf:gpd.GeoDataFrame,
-    startdate:datetime,
-    enddate:datetime,
-    sshcreds:sshcreds.SSHCredentials,
-    satellite_folderpath:str,
-    bands:list[str],
-    overwrite_catalog:bool=False,
-    njobs:int = 16,
-):
-    EXT_JP2 = '.jp2'
-
-    catalog_gdf = query_sentinel2_catalog(
+    band_filepaths_df:pd.DataFrame = \
+    create_stack.get_intersecting_band_filepaths(
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
-        sshcreds = sshcreds,
-        satellite_folderpath = satellite_folderpath,
-        overwrite_catalog = overwrite_catalog,
+        catalog_filepath = catalog_filepath,
+        bands = bands,
     )
 
-    catalog_gdf['files_to_download'] = catalog_gdf['files'].apply(
-        lambda x: ','.join({
-            xi + EXT_JP2 for xi in
-            {xi.removesuffix(EXT_JP2) for xi in x.split(',')} & set(bands)
-        })
+    band_filepaths_df.rename(columns={'filepath': 'remotepath'}, inplace=True)
+    band_filepaths_df['download_filepath'] = \
+    band_filepaths_df['remotepath'].apply(
+        lambda remotepath: remotepath_to_localpath(
+            remotepath = remotepath,
+            remote_root_path = FOLDERPATH_SATELLITE,
+            local_root_path = satellite_folderpath,
+        )
     )
-
-    data = {
-        'id': [],
-        'timestamp': [],
-        'band': [],
-        'remotepath': [],
-        'download_filepath': [],
-    }
-
-    for _id, timestamp, local_folderpath, files in zip(
-        catalog_gdf['id'],
-        catalog_gdf['timestamp'],
-        catalog_gdf['local_folderpath'],
-        catalog_gdf['files'],
-    ):
-        filenames_of_interest = {
-            xii + EXT_JP2 
-            for xii in {
-                xi.removesuffix(EXT_JP2) 
-                for xi in files.split(',')
-            } & set(bands)
-        }
-        
-        # if no files of interest present, skip
-        if len(filenames_of_interest) == 0:
-            continue
-
-        _remotepaths = [
-            local_folderpath + '/' + filename_of_interest
-            for filename_of_interest in filenames_of_interest
-        ]
-        _download_filepaths = [
-            remotepath_to_localpath(
-                remotepath = _remotepath,
-                remote_root_path = FOLDERPATH_SATELLITE,
-                local_root_path = satellite_folderpath,
-            )
-            for _remotepath in _remotepaths
-        ]
-        data['id'] += [_id for _ in range(len(_remotepaths))]
-        data['timestamp'] += [timestamp for _ in range(len(_remotepaths))]
-        data['band'] += [
-            filename_of_interest.removesuffix(EXT_JP2)
-            for filename_of_interest in filenames_of_interest
-        ]
-        data['remotepath'] += _remotepaths
-        data['download_filepath'] += _download_filepaths
-
-        del _remotepaths, _download_filepaths
 
     download_successes = download_files_from_cluster(
         sshcreds = sshcreds,
-        remotepaths = data['remotepath'],
-        download_filepaths = data['download_filepath'],
+        remotepaths = band_filepaths_df['remotepath'],
+        download_filepaths = band_filepaths_df['download_filepath'],
         overwrite = False,
         njobs = njobs,
     )
 
-    data['download_success'] = download_successes
+    band_filepaths_df.rename(columns={'download_filepath': 'filepath'}, inplace=True)
 
-    return pd.DataFrame(data=data)
+    band_filepaths_df['download_success'] = download_successes
+
+    return band_filepaths_df
+
