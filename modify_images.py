@@ -11,10 +11,7 @@ import rsutils.utils
 
 """
 Logic here is that every function mandatorily takes in two inputs in the
-order -- src_filepath and dst_filepath. Every function returns the filepath
-where the output is saved. In some cases (see: reproject), a function need
-not run since there would have been no change in the file, in such cases the
-the src_filepath is returned.
+order -- src_filepath and dst_filepath.
 """
 
 
@@ -140,3 +137,17 @@ def reproject(
                     dst_transform=transform,
                     dst_crs=dst_crs,
                     resampling=resampling)
+
+
+def resample_by_ref(
+    src_filepath:str,
+    dst_filepath:str,
+    ref_filepath:str,
+    resampling = rasterio.warp.Resampling.nearest, 
+):
+    rsutils.utils.resample_tif(
+        ref_filepath = ref_filepath,
+        src_filepath = src_filepath,
+        dst_filepath = dst_filepath,
+        resampling = resampling,
+    )
