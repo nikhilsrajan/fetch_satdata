@@ -127,6 +127,8 @@ def reproject(
             'height': height
         })
 
+        kwargs = rsutils.utils.driver_specific_meta_updates(meta=kwargs)
+
         with rasterio.open(dst_filepath, 'w', **kwargs) as dst:
             for i in range(1, src.count + 1):
                 rasterio.warp.reproject(
