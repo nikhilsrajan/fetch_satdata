@@ -1,5 +1,6 @@
 import geopandas as gpd
 import datetime
+import rasterio.merge
 import shapely.ops
 import pandas as pd
 import rasterio
@@ -8,8 +9,11 @@ import os
 import functools
 import multiprocessing as mp
 import tqdm
+import numpy as np
+import shutil
 
 import modify_images
+import rsutils.utils
 
 
 def filter_catalog(
@@ -152,7 +156,7 @@ def crop_and_reproject(
     enddate:datetime.datetime,
     bands:list[str],
     out_folderpath:str,
-    satellite_folderpath:str, # for maintaining the same folder structure
+    satellite_folderpath:str=None, # for maintaining the same folder structure
     nodata = 0,
     working_dir:str = None,
     njobs:int = 8,
@@ -168,7 +172,9 @@ def crop_and_reproject(
     )
 
     if band_filepaths_df.shape[0] == 0:
-        return None
+        raise ValueError(
+            'get_intersecting_band_filepaths returned 0 results.'
+        )
     
     band_filepaths_df['crs'] = band_filepaths_df['filepath'].apply(lambda x: str(get_image_crs(filepath=x)))
 
@@ -188,15 +194,23 @@ def crop_and_reproject(
         (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
     ]
 
-    satellite_folderpath = os.path.abspath(satellite_folderpath)
-
-    band_filepaths_df['out_filepath'] = band_filepaths_df['filepath'].apply(
-        lambda filepath: change_parent_folderpath(
-            filepath = filepath,
-            parent_folderpath = satellite_folderpath,
-            new_parent_folderpath = out_folderpath,
+    if satellite_folderpath is not None:
+        satellite_folderpath = os.path.abspath(satellite_folderpath)
+        band_filepaths_df['out_filepath'] = band_filepaths_df['filepath'].apply(
+            lambda filepath: change_parent_folderpath(
+                filepath = filepath,
+                parent_folderpath = satellite_folderpath,
+                new_parent_folderpath = out_folderpath,
+            )
         )
-    )
+    else:
+        band_filepaths_df['out_filepath'] = band_filepaths_df.apply(
+            lambda row: rsutils.utils.modify_filepath(
+                filepath = row['filepath'],
+                new_folderpath = os.path.join(out_folderpath, row['id'])
+            ),
+            axis = 1,
+        )
 
     successes = modify_images.modify_images(
         src_filepaths = band_filepaths_df['filepath'],
@@ -273,6 +287,118 @@ def resample_to_selected_band_inplace_by_df(
         ))
 
 
+def get_shape(filepath):
+    with rasterio.open(filepath) as src:
+        shape = (src.meta['height'], src.meta['width'])
+    return shape
+
+
+def create_merge_reference(
+    filepaths_to_merge:list[str],
+    working_dir:str = None,
+    nodata = 0,
+):
+    if working_dir is None:
+        working_dir = os.path.split(filepaths_to_merge[0])[0]
+
+    merged_ndarray, merged_transform = rasterio.merge.merge(
+        filepaths_to_merge, nodata = nodata,
+    )
+
+    merged_ndarray[:] = 0
+
+    with rasterio.open(filepaths_to_merge[0]) as src:
+        merged_meta = src.meta.copy()
+
+    merged_meta.update({
+        'count': merged_ndarray.shape[0],
+        'height': merged_ndarray.shape[1],
+        'width': merged_ndarray.shape[2],
+        'transform': merged_transform,
+    })
+
+    merged_meta = rsutils.utils.driver_specific_meta_updates(
+        meta=merged_meta, driver='GTiff'
+    )
+
+    merge_reference_filepath = os.path.join(
+        working_dir, f'merge_reference_{rsutils.utils.get_epochs_str()}.tif'
+    )
+
+    with rasterio.open(merge_reference_filepath, 'w', **merged_meta) as dst:
+        dst.write(merged_ndarray)
+    
+    return merge_reference_filepath, merged_meta['height'], merged_meta['width']
+
+
+def resample_to_merge_master_inplace(
+    band_filepaths_df:pd.DataFrame,
+    shapes_gdf:gpd.GeoDataFrame,
+    nodata = 0,
+    merge_ref_band:str = 'B08',
+    working_dir:str = None,
+    resampling = rasterio.warp.Resampling.nearest,
+    njobs:int = 8,
+):
+    if band_filepaths_df.shape[0] == 0:
+        raise ValueError('band_filepaths_df is empty.')
+
+    band_filepaths_df['shape'] = band_filepaths_df['filepath'].apply(get_shape)
+    
+    filepaths_to_merge = []
+
+    for shape in band_filepaths_df['shape'].unique():
+        filepath = band_filepaths_df[
+            (band_filepaths_df['band'] == merge_ref_band)
+            & (band_filepaths_df['shape'] == shape)
+        ]['filepath'].tolist()[0]
+        filepaths_to_merge.append(filepath)
+
+    merge_reference_filepath, height, width \
+    = create_merge_reference(
+        filepaths_to_merge = filepaths_to_merge,
+        working_dir = working_dir,
+        nodata = nodata,
+    )
+
+    sequence = [
+        (modify_images.resample_by_ref, dict(ref_filepath = merge_reference_filepath,
+                                             resampling = resampling)),
+        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True))
+    ]
+
+    modify_images.modify_images(
+        src_filepaths = band_filepaths_df['filepath'],
+        dst_filepaths = band_filepaths_df['filepath'],
+        sequence = sequence,
+        working_dir = working_dir,
+        njobs = njobs,
+    )
+
+    return merge_reference_filepath, height, width
+
+
+def save_stack(
+    bands:np.ndarray,
+    metadata:dict,
+    folderpath:str,
+):
+    os.makedirs(folderpath, exist_ok=True)
+    bandstack_filepath = os.path.join(folderpath, 'bands.npy')
+    metadata_filepath = os.path.join(folderpath, 'metadata.pickle.npy')
+    np.save(bandstack_filepath, bands)
+    np.save(metadata_filepath, metadata, allow_pickle=True)
+    return bandstack_filepath, metadata_filepath
+
+
+def load_stack(folderpath:str):
+    bandstack_filepath = os.path.join(folderpath, 'bands.npy')
+    metadata_filepath = os.path.join(folderpath, 'metadata.pickle.npy')
+    bands = np.load(bandstack_filepath)
+    metadata = np.load(metadata_filepath, allow_pickle=True)[()]
+    return bands, metadata
+
+
 def create_stack(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
@@ -280,21 +406,23 @@ def create_stack(
     enddate:datetime.datetime,
     bands:list[str],
     out_folderpath:str,
-    satellite_folderpath:str, # for maintaining the same folder structure
+    working_dir:str,
     nodata = 0,
-    working_dir:str = None,
     njobs:int = 8,
     dst_crs = None,
     resampling = rasterio.warp.Resampling.nearest,
     resampling_ref_band:str = 'B08',
+    delete_working_dir:bool = True,
+    satellite_folderpath:str = None, # for maintaining the same folder structure
 ):
+    print('Cropping tiles and reprojecting to common CRS:')
     band_filepaths_df = crop_and_reproject(
         shapes_gdf = shapes_gdf,
         catalog_filepath = catalog_filepath,
         startdate = startdate,
         enddate = enddate,
         bands = bands,
-        out_folderpath = out_folderpath,
+        out_folderpath = working_dir,
         satellite_folderpath = satellite_folderpath,
         nodata = nodata,
         working_dir = working_dir,
@@ -302,6 +430,7 @@ def create_stack(
         dst_crs = dst_crs,
     )
 
+    print(f'Resampling cropped images to resolution of {resampling_ref_band} band:')
     resample_to_selected_band_inplace_by_df(
         band_filepaths_df = band_filepaths_df,
         shapes_gdf = shapes_gdf,
@@ -312,4 +441,69 @@ def create_stack(
         njobs = njobs,
     )
 
-    return band_filepaths_df
+    print(f'Resampling cropped images to merged shape:')
+    merge_reference_filepath, height, width \
+    = resample_to_merge_master_inplace(
+        band_filepaths_df = band_filepaths_df,
+        shapes_gdf = shapes_gdf,
+        nodata = nodata,
+        merge_ref_band = resampling_ref_band,
+        working_dir = working_dir,
+        resampling = resampling,
+        njobs = njobs,
+    )
+
+    os.remove(merge_reference_filepath)
+
+    timestamps = band_filepaths_df['timestamp'].unique().tolist()
+    timestamps.sort()
+
+    timestamp_band_filepaths_dict = \
+    band_filepaths_df.groupby(['timestamp'])[
+        ['band', 'filepath']
+    ].apply(
+        lambda g: dict(map(tuple, g.values.tolist()))
+    ).to_dict()
+
+    timestamp_to_id_dict = dict(zip(
+        band_filepaths_df['timestamp'],
+        band_filepaths_df['id'],
+    ))
+
+    stack = []
+    meta = None
+    ids = []
+    for timestamp in timestamps:
+        band_stack = []
+        for band in bands:
+            band_filepath = timestamp_band_filepaths_dict[timestamp][band]
+            with rasterio.open(band_filepath) as src:
+                if meta is None:
+                    meta = src.meta.copy()
+                band_stack.append(src.read())
+        band_stack = np.stack(band_stack, axis=-1)
+        stack.append(band_stack)
+        del band_stack
+        ids.append(timestamp_to_id_dict[timestamp])
+    stack = np.concatenate(stack, axis=0)
+
+    meta['nodata'] = nodata
+    meta['driver'] = 'GTiff'
+    rsutils.utils.driver_specific_meta_updates(meta = meta)
+
+    metadata = {
+        'geotiff_metadata': meta,
+        'timestamps': timestamps,
+        'ids': ids,
+        'bands': bands,
+        'data_shape_desc': ('timestamps|ids', 'height', 'width', 'bands')
+    }
+
+    if delete_working_dir:
+        shutil.rmtree(working_dir)
+
+    return save_stack(
+        bands = stack,
+        metadata = metadata,
+        folderpath = out_folderpath,
+    )
