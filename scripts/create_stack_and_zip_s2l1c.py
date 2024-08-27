@@ -52,4 +52,4 @@ if __name__ == '__main__':
 
     shutil.rmtree(zip_filepath)
 
-    print(f'Outputs zipped and saved at: {os.path.abspath(zip_filepath)}')
+    print(f'Outputs zipped and saved at: {os.path.abspath(final_zip_filepath)}')
