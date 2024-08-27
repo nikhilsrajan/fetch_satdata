@@ -14,6 +14,11 @@ Logic here is that every function mandatorily takes in two inputs in the
 order -- src_filepath and dst_filepath.
 """
 
+def delete_aux_xml(jp2_filepath):
+    aux_xml_filepath = jp2_filepath + '.aux.xml'
+    if os.path.exists(aux_xml_filepath):
+        os.remove(aux_xml_filepath)
+
 
 def modify_image(
     src_filepath:str,
@@ -40,12 +45,14 @@ def modify_image(
 
         if delete_temp_files and src_filepath != temp_src_filepath:
             os.remove(temp_src_filepath)
+            delete_aux_xml(temp_src_filepath)
 
         temp_src_filepath = temp_dst_filepath
 
     dst_folderpath = os.path.split(dst_filepath)[0]
     os.makedirs(dst_folderpath, exist_ok=True)
     os.rename(temp_dst_filepath, dst_filepath)
+    delete_aux_xml(temp_dst_filepath)
 
     return os.path.exists(dst_filepath)
 
@@ -70,6 +77,7 @@ def modify_images(
     sequence:list,
     working_dir:str = None,
     njobs:int = mp.cpu_count() - 2,
+    print_messages:bool = True,
 ):
     if len(src_filepaths) != len(dst_filepaths):
         raise ValueError('Size of src_filepaths and dst_filepaths do not match.')
@@ -83,10 +91,16 @@ def modify_images(
     src_filepath_dst_filepath_tuples = list(zip(src_filepaths, dst_filepaths))
 
     with mp.Pool(njobs) as p:
-        successes = list(tqdm.tqdm(
-            p.imap(_modify_image_by_tuple_partial, src_filepath_dst_filepath_tuples), 
-            total=len(src_filepath_dst_filepath_tuples)
-        ))
+        if print_messages:
+            successes = list(tqdm.tqdm(
+                p.imap(_modify_image_by_tuple_partial, src_filepath_dst_filepath_tuples), 
+                total=len(src_filepath_dst_filepath_tuples)
+            ))
+        else:
+            successes = list(
+                p.imap(_modify_image_by_tuple_partial, src_filepath_dst_filepath_tuples), 
+                total=len(src_filepath_dst_filepath_tuples)
+            )
     
     return successes
 

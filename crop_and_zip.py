@@ -11,26 +11,6 @@ import create_stack
 import modify_images
 
 
-def get_image_crs(filepath:str):
-    with rasterio.open(filepath) as src:
-        crs = src.crs
-    return crs
-
-
-def change_parent_folderpath(
-    filepath:str,
-    parent_folderpath:str,
-    new_parent_folderpath:str,
-):
-    filepath = os.path.abspath(filepath)
-    parent_folderpath = os.path.abspath(parent_folderpath)
-    return os.path.join(
-        new_parent_folderpath,
-        os.path.relpath(path=filepath,
-                        start=parent_folderpath)
-    )
-
-
 def crop_and_zip(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
@@ -44,59 +24,22 @@ def crop_and_zip(
     njobs:int = 8,
     dst_crs = None,
 ):
-    band_filepaths_df = \
-    create_stack.get_intersecting_band_filepaths(
+    out_folderpath = zip_filepath.removesuffix('.zip')
+
+    band_filepaths_df = create_stack.crop_and_reproject(
         shapes_gdf = shapes_gdf,
+        catalog_filepath = catalog_filepath,
         startdate = startdate,
         enddate = enddate,
-        catalog_filepath = catalog_filepath,
         bands = bands,
-    )
-
-    if band_filepaths_df.shape[0] == 0:
-        return None
-    
-    band_filepaths_df['crs'] = band_filepaths_df['filepath'].apply(lambda x: str(get_image_crs(filepath=x)))
-
-    if dst_crs is None:
-        group_by_crs_df = band_filepaths_df.groupby(by='crs')
-        area_contribution_mean = group_by_crs_df['area_contribution'].mean()
-        sorted_area_contribution_mean = area_contribution_mean.sort_values(ascending=False)
-        max_area_contribution_crs = sorted_area_contribution_mean.index[0]
-        dst_crs = max_area_contribution_crs
-
-    out_folderpath = zip_filepath.removesuffix('.zip')
-    
-    os.makedirs(out_folderpath, exist_ok=True)
-
-    sequence = [
-        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
-        (modify_images.reproject, dict(dst_crs=dst_crs)),
-        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
-    ]
-
-    satellite_folderpath = os.path.abspath(satellite_folderpath)
-
-    band_filepaths_df['out_filepath'] = band_filepaths_df['filepath'].apply(
-        lambda filepath: change_parent_folderpath(
-            filepath = filepath,
-            parent_folderpath = satellite_folderpath,
-            new_parent_folderpath = out_folderpath,
-        )
-    )
-
-    successes = modify_images.modify_images(
-        src_filepaths = band_filepaths_df['filepath'],
-        dst_filepaths = band_filepaths_df['out_filepath'],
-        sequence = sequence,
+        out_folderpath = out_folderpath,
+        satellite_folderpath = satellite_folderpath,
+        nodata = nodata,
         working_dir = working_dir,
         njobs = njobs,
+        dst_crs = dst_crs,
     )
 
-    print(f'Successful: {sum(successes)} / {len(successes)}')
-
-    band_filepaths_df.drop(columns=['crs', 'filepath'], inplace=True)
-    band_filepaths_df.rename(columns={'out_filepath':'filepath'}, inplace=True)
     band_filepaths_df['filepath'] = band_filepaths_df['filepath'].apply(
         lambda filepath: os.path.relpath(
             path = filepath,
