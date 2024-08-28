@@ -209,13 +209,16 @@ def update_catalog(
         if _id not in id_to_download_files.keys():
             id_to_download_files[_id] = []
         
-        band_filename = parsed_s3_url['band_filename']
-        parsed_band_filename = cdseutils.sentinel2.parse_band_filename(
-            sentinel2_band_filename=band_filename
-        )
-        local_band_filename = parsed_band_filename['band'] + parsed_band_filename['ext']
+        if parsed_s3_url['band_filename'] is not None:
+            band_filename = parsed_s3_url['band_filename']
+            parsed_band_filename = cdseutils.sentinel2.parse_band_filename(
+                sentinel2_band_filename=band_filename
+            )
+            local_filename = parsed_band_filename['band'] + parsed_band_filename['ext']
+        elif parsed_s3_url['xml_filename'] is not None:
+            local_filename = parsed_s3_url['xml_filename']
 
-        id_to_download_files[_id].append(local_band_filename)
+        id_to_download_files[_id].append(local_filename)
         id_to_download_folderpath[_id] = os.path.abspath(os.path.split(download_filepath)[0])
 
     _ids = id_to_download_files.keys()
