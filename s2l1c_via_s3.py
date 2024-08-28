@@ -282,13 +282,13 @@ def chunkwise_download_files_and_update_catalog(
                 _download_successes.append(True)
                 if _download_status == cdseutils.utils.S3_DOWNLOAD_SUCCESS:
                     download_success_count += 1
-                    download_failed_count += 1
                 elif _download_status == cdseutils.utils.S3_DOWNLOAD_SKIPPED:
                     download_skipped_count += 1
                 elif _download_status == cdseutils.utils.S3_DOWNLOAD_OVERWRITE:
                     download_overwrite_count += 1
             elif _download_status == cdseutils.utils.S3_DOWNLOAD_FAILED:
                 _download_successes.append(False)
+                download_failed_count += 1
         update_catalog(
             catalog_gdf = catalog_gdf,
             s3paths = _s3paths,
