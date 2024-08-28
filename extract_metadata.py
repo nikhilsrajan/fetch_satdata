@@ -36,9 +36,10 @@ def extract_s2l1c_mean_sun_angle(
     ):
         filenames_of_interest = set(files.split(',')) & {METADATA_FILENAME}
 
+        data['id'].append(_id)
+
         # MTD_TL.xml was not downloaded for id
         if len(filenames_of_interest) == 0:
-            data['id'].append(_id)
             data['filepath'].append(None)
             data['azimuth (deg)'].append(None)
             data['zenith (deg)'].append(None)

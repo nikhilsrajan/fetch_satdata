@@ -297,7 +297,7 @@ def chunkwise_download_files_and_update_catalog(
             sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
         )
         print(
-            f'Download status: {downloads_done} / {N}:\n'
+            f'Download status: {downloads_done} / {N}\n'
             f'- Success: {download_success_count}\n'
             f'- Skipped: {download_skipped_count}\n'
             f'- Overwrite: {download_overwrite_count}\n'
