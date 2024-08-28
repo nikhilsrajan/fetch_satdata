@@ -34,7 +34,7 @@ def extract_s2l1c_mean_sun_angle(
         catalog_gdf['id'],
         catalog_gdf['local_folderpath'],
         catalog_gdf['files'],
-    )):
+    ), total=catalog_gdf.shape[0]):
         filenames_of_interest = set(files.split(',')) & {METADATA_FILENAME}
 
         data['id'].append(_id)
