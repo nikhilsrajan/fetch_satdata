@@ -45,6 +45,7 @@ if __name__ == '__main__':
         satellite_folderpath = None,
     )
 
+    print('Extracting mean_sun_angle:')
     mean_sun_angle_df = \
     extract_metadata.extract_s2l1c_mean_sun_angle(
         shapes_gdf = shapes_gdf,
@@ -52,8 +53,9 @@ if __name__ == '__main__':
         startdate = startdate,
         enddate = enddate,
     )
-    mean_sun_angle_df.to_csv(os.path.join(zip_filepath, 'mean_sun_angle.csv', index=False))
+    mean_sun_angle_df.to_csv(os.path.join(zip_filepath, 'mean_sun_angle.csv'), index=False)
 
+    print('Zipping files...')
     final_zip_filepath = shutil.make_archive(
         zip_filepath,
         'zip',

@@ -3,6 +3,7 @@ import geopandas as gpd
 import datetime
 import xml.etree.ElementTree as ET
 import pandas as pd
+import tqdm
 
 import create_stack
 
@@ -29,11 +30,11 @@ def extract_s2l1c_mean_sun_angle(
         'zenith (deg)': [],
     }
 
-    for _id, local_folderpath, files in zip(
+    for _id, local_folderpath, files in tqdm.tqdm(zip(
         catalog_gdf['id'],
         catalog_gdf['local_folderpath'],
         catalog_gdf['files'],
-    ):
+    )):
         filenames_of_interest = set(files.split(',')) & {METADATA_FILENAME}
 
         data['id'].append(_id)
