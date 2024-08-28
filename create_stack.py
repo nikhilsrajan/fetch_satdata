@@ -106,7 +106,7 @@ def get_intersecting_band_filepaths(
             continue
 
         _filepaths = [
-            local_folderpath + '/' + filename_of_interest
+            os.path.join(local_folderpath, filename_of_interest)
             for filename_of_interest in filenames_of_interest
         ]
 

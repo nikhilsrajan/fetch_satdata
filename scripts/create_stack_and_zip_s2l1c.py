@@ -8,6 +8,7 @@ sys.path.append('..')
 
 import config
 import create_stack
+import extract_metadata
 
 
 if __name__ == '__main__':
@@ -43,6 +44,15 @@ if __name__ == '__main__':
         delete_working_dir = True,
         satellite_folderpath = None,
     )
+
+    mean_sun_angle_df = \
+    extract_metadata.extract_s2l1c_mean_sun_angle(
+        shapes_gdf = shapes_gdf,
+        catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
+        startdate = startdate,
+        enddate = enddate,
+    )
+    mean_sun_angle_df.to_csv(os.path.join(zip_filepath, 'mean_sun_angle.csv', index=False))
 
     final_zip_filepath = shutil.make_archive(
         zip_filepath,

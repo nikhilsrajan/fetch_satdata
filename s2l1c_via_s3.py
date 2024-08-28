@@ -251,13 +251,16 @@ def chunkwise_download_files_and_update_catalog(
     logger:logging.Logger = None,
 ):
     N = len(s3paths)
-    successful_download_count = 0
+    download_success_count = 0
+    download_failed_count = 0
+    download_skipped_count = 0
+    download_overwrite_count = 0
+    
     downloads_done = 0
-    failed_download_count = 0
     for i in range(0, N, chunksize):
         _s3paths = s3paths[i:i+chunksize]
         _download_filepaths = download_filepaths[i:i+chunksize]
-        _download_successes = \
+        _download_statuses = \
         cdseutils.utils.download_s3_files(
             s3_creds = s3_creds,
             s3paths = _s3paths,
@@ -265,11 +268,24 @@ def chunkwise_download_files_and_update_catalog(
             overwrite = overwrite,
             logger = logger,
         )
-        current_chunk_size = len(_s3paths)
-        chunk_successful_download_count = sum(_download_successes)
-        successful_download_count += chunk_successful_download_count
-        failed_download_count += current_chunk_size - chunk_successful_download_count
-        downloads_done += current_chunk_size
+        _download_successes = []
+        for _download_status in _download_statuses:
+            downloads_done += 1
+            if _download_status in [
+                cdseutils.utils.S3_DOWNLOAD_SUCCESS,
+                cdseutils.utils.S3_DOWNLOAD_SKIPPED,
+                cdseutils.utils.S3_DOWNLOAD_OVERWRITE,
+            ]:
+                _download_successes.append(True)
+                if _download_status == cdseutils.utils.S3_DOWNLOAD_SUCCESS:
+                    download_success_count += 1
+                    download_failed_count += 1
+                elif _download_status == cdseutils.utils.S3_DOWNLOAD_SKIPPED:
+                    download_skipped_count += 1
+                elif _download_status == cdseutils.utils.S3_DOWNLOAD_OVERWRITE:
+                    download_overwrite_count += 1
+            elif _download_status == cdseutils.utils.S3_DOWNLOAD_FAILED:
+                _download_successes.append(False)
         update_catalog(
             catalog_gdf = catalog_gdf,
             s3paths = _s3paths,
@@ -277,8 +293,13 @@ def chunkwise_download_files_and_update_catalog(
             download_successes = _download_successes,
             sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
         )
-        print(f'Download status: {downloads_done} / {N} -- Failed: {failed_download_count}')
-    return successful_download_count
+        print(
+            f'Download status: {downloads_done} / {N}:\n'
+            f'- Success: {download_success_count}\n'
+            f'- Skipped: {download_skipped_count}\n'
+            f'- Overwrite: {download_overwrite_count}\n'
+            f'- Failed: {download_failed_count}'
+        )
     
 
 def download_sentinel2_l1c_tiles(
@@ -422,8 +443,6 @@ def download_sentinel2_l1c_tiles(
         overwrite = False,
         logger = None,
     )
-
-    print(f'Successful downloads: {successful_download_count} / {len(s3paths)}')
 
     return successful_download_count, len(s3paths)
 
