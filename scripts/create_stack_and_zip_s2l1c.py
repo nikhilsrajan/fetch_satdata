@@ -33,6 +33,49 @@ def add_s2cloudless_band_and_save(
     )
 
 
+def cloud_masked_median_mosaicing(
+    folderpath:str,
+    cloud_threshold:float,
+    startdate:datetime.datetime,
+    enddate:datetime.datetime,
+    mosaic_days:int,
+):
+    if cloud_threshold < 0 or cloud_threshold > 1:
+        raise ValueError('cloud_threshold must be from 0-1')
+    if mosaic_days < 0:
+        raise ValueError('mosaic_days can not be negative.')
+
+    bands, metadata = create_stack.load_stack(
+        folderpath = folderpath
+    )
+    band_indices = {band:index for index,band in enumerate(metadata['bands'])}
+    if 'CMK' not in band_indices.keys():
+        raise ValueError(f'CMK band not present in bands in folderpath: {folderpath}')
+    
+    cmk_index = band_indices['CMK']
+    non_cmk_indices = [band_indices[band] for band in metadata['bands'] if band!='CMK']
+
+    cmk = bands[:,:,:,cmk_index]
+    bands_wo_cmk = bands[:,:,:,non_cmk_indices]
+
+    bands_wo_cmk[np.where(cmk >= cloud_threshold * 10000)] = 0
+
+    mosaiced_bands, mosaiced_metadata \
+    = stack_ops.median_mosaic(
+        bands = bands_wo_cmk, 
+        metadata = metadata,
+        startdate = startdate,
+        enddate = enddate,
+        mosaic_days = mosaic_days,
+    )
+
+    create_stack.save_stack(
+        bands = mosaiced_bands,
+        metadata = mosaiced_metadata,
+        folderpath = folderpath,
+    )
+
+
 if __name__ == '__main__':
     """
     Arguments:
@@ -43,6 +86,8 @@ if __name__ == '__main__':
     - zip filepath without extension
     - njobs
     - s2cloudless chunksize (recommended: 10)
+    - cloud_threshold (float, 0-1)
+    - mosaic_days (int)
     """
     NODATA = 0 # since the script is hardcoded for sentinel-2-l1c
 
@@ -53,6 +98,15 @@ if __name__ == '__main__':
     zip_filepath = sys.argv[5]
     njobs = int(sys.argv[6])
     s2cloudless_chunksize = int(sys.argv[7])
+    cloud_threshold = float(sys.argv[8])
+    mosaic_days = int(sys.argv[9])
+
+    if s2cloudless_chunksize < 0:
+        raise ValueError('s2cloudless_chunksize can not be negative.')
+    if cloud_threshold < 0 or cloud_threshold > 1:
+        raise ValueError('cloud_threshold must be from 0-1')
+    if mosaic_days < 0:
+        raise ValueError('mosaic_days can not be negative.')
 
     create_stack.create_stack(
         shapes_gdf = shapes_gdf,
@@ -82,6 +136,14 @@ if __name__ == '__main__':
     print('Running s2cloudless...')
     add_s2cloudless_band_and_save(folderpath=zip_filepath, chunksize=s2cloudless_chunksize)
 
+    print(f'Performing cloud masked median mosaicing - cloud_threshold={cloud_threshold}, mosaic_days={mosaic_days}')
+    cloud_masked_median_mosaicing(
+        folderpath = zip_filepath,
+        cloud_threshold = cloud_threshold,
+        startdate = startdate,
+        enddate = enddate,
+        mosaic_days = mosaic_days,
+    )
 
     print('Zipping files...')
     final_zip_filepath = shutil.make_archive(
