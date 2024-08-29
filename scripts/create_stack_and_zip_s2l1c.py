@@ -60,6 +60,8 @@ def cloud_masked_median_mosaicing(
 
     bands_wo_cmk[np.where(cmk >= cloud_threshold * 10000)] = 0
 
+    metadata['bands'].remove('CMK')
+
     mosaiced_bands, mosaiced_metadata \
     = stack_ops.median_mosaic(
         bands = bands_wo_cmk, 
