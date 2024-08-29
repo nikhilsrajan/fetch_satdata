@@ -15,7 +15,8 @@ import stack_ops
 
 
 def add_s2cloudless_band_and_save(
-    folderpath:str
+    folderpath:str,
+    chunksize:int,
 ):
     bands, metadata = create_stack.load_stack(
         folderpath = folderpath
@@ -23,6 +24,7 @@ def add_s2cloudless_band_and_save(
     bands, metadata = stack_ops.run_s2cloudless(
         bands = bands,
         metadata = metadata,
+        chunksize = chunksize,
     )
     create_stack.save_stack(
         bands = bands,
@@ -40,6 +42,7 @@ if __name__ == '__main__':
     - bands separated by comma, eg B02,B03,B04,B08
     - zip filepath without extension
     - njobs
+    - s2cloudless chunksize (recommended: 10)
     """
     NODATA = 0 # since the script is hardcoded for sentinel-2-l1c
 
@@ -49,6 +52,7 @@ if __name__ == '__main__':
     bands = sys.argv[4].split(',')
     zip_filepath = sys.argv[5]
     njobs = int(sys.argv[6])
+    s2cloudless_chunksize = int(sys.argv[7])
 
     create_stack.create_stack(
         shapes_gdf = shapes_gdf,
@@ -76,7 +80,7 @@ if __name__ == '__main__':
     mean_sun_angle_df.to_csv(os.path.join(zip_filepath, 'mean_sun_angle.csv'), index=False)
 
     print('Running s2cloudless...')
-    add_s2cloudless_band_and_save(folderpath=zip_filepath)
+    add_s2cloudless_band_and_save(folderpath=zip_filepath, chunksize=s2cloudless_chunksize)
 
 
     print('Zipping files...')
