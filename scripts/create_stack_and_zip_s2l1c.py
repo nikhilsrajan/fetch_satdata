@@ -2,6 +2,8 @@ import os
 import geopandas as gpd
 import datetime
 import shutil
+import s2cloudless
+import numpy as np
 
 import sys
 sys.path.append('..')
@@ -9,6 +11,24 @@ sys.path.append('..')
 import config
 import create_stack
 import extract_metadata
+import stack_ops
+
+
+def add_s2cloudless_band_and_save(
+    folderpath:str
+):
+    bands, metadata = create_stack.load_stack(
+        folderpath = folderpath
+    )
+    bands, metadata = stack_ops.run_s2cloudless(
+        bands = bands,
+        metadata = metadata,
+    )
+    create_stack.save_stack(
+        bands = bands,
+        metadata = metadata,
+        folderpath = folderpath,
+    )
 
 
 if __name__ == '__main__':
@@ -54,6 +74,10 @@ if __name__ == '__main__':
         enddate = enddate,
     )
     mean_sun_angle_df.to_csv(os.path.join(zip_filepath, 'mean_sun_angle.csv'), index=False)
+
+    print('Running s2cloudless...')
+    add_s2cloudless_band_and_save(folderpath=zip_filepath)
+
 
     print('Zipping files...')
     final_zip_filepath = shutil.make_archive(

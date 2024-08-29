@@ -391,7 +391,7 @@ def save_stack(
     return bandstack_filepath, metadata_filepath
 
 
-def load_stack(folderpath:str):
+def load_stack(folderpath:str)->tuple[np.ndarray, dict]:
     bandstack_filepath = os.path.join(folderpath, 'bands.npy')
     metadata_filepath = os.path.join(folderpath, 'metadata.pickle.npy')
     bands = np.load(bandstack_filepath)
