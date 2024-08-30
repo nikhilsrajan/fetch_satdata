@@ -146,9 +146,13 @@ if __name__ == '__main__':
 
     NODATA = 0 # since the script is hardcoded for sentinel-2-l1c
 
+    print('--- inputs ---')
+
     shapes_gdf, startdate, enddate, bands, \
     zip_filepath, njobs, s2cloudless_chunksize, \
     cloud_threshold, mosaic_days = parse_args()
+
+    print('--- run ---')
 
     create_stack.create_stack(
         shapes_gdf = shapes_gdf,
@@ -175,14 +179,15 @@ if __name__ == '__main__':
     )
     mean_sun_angle_df.to_csv(os.path.join(zip_filepath, 'mean_sun_angle.csv'), index=False)
 
-    print('Running s2cloudless...')
+    print('Running s2cloudless:')
     add_s2cloudless_band_and_save(
         folderpath = zip_filepath, 
         chunksize = s2cloudless_chunksize,
         njobs = njobs,
     )
 
-    print(f'Performing cloud masked median mosaicing - cloud_threshold={cloud_threshold}, mosaic_days={mosaic_days}')
+    print(f'Performing cloud masked median mosaicing - '
+          f'cloud_threshold={cloud_threshold}, mosaic_days={mosaic_days} ... ', end='')
     cloud_masked_median_mosaicing(
         folderpath = zip_filepath,
         cloud_threshold = cloud_threshold,
@@ -190,6 +195,7 @@ if __name__ == '__main__':
         enddate = enddate,
         mosaic_days = mosaic_days,
     )
+    print('Done.')
 
     print('Zipping files...')
     final_zip_filepath = shutil.make_archive(
