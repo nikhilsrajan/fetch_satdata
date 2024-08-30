@@ -84,22 +84,12 @@ def parse_args():
     roi_filepath = sys.argv[1]
     startdate_str = sys.argv[2]
     enddate_str = sys.argv[3]
-    bands_arg = sys.argv[4]
+    bands_arg = sys.argv[4].lower()
     zip_filepath = sys.argv[5]
     njobs = int(sys.argv[6])
     s2cloudless_chunksize = int(sys.argv[7])
     cloud_threshold = float(sys.argv[8])
     mosaic_days = int(sys.argv[9])
-
-    print(f'roi_filepath = {roi_filepath}')
-    print(f'startdate = {startdate_str}')
-    print(f'enddate = {enddate_str}')
-    print(f'bands = {bands_arg}')
-    print(f'zip_filepath = {zip_filepath}')
-    print(f'njobs = {njobs}')
-    print(f's2cloudless_chunksize = {s2cloudless_chunksize}')
-    print(f'cloud_threshold = {cloud_threshold}')
-    print(f'mosaic_days = {mosaic_days}')
 
     shapes_gdf = gpd.read_file(roi_filepath)
     startdate = datetime.datetime.strptime(startdate_str, '%Y-%m-%d')
@@ -112,7 +102,7 @@ def parse_args():
             'B12',
         ]
     else:
-        bands = bands_arg.split(',')
+        bands = bands_arg.upper().split(',')
 
     if s2cloudless_chunksize < 0:
         raise ValueError('s2cloudless_chunksize can not be negative.')
@@ -120,7 +110,16 @@ def parse_args():
         raise ValueError('cloud_threshold must be from 0-1')
     if mosaic_days < 0:
         raise ValueError('mosaic_days can not be negative.')
-    
+
+    print(f'roi_filepath = {roi_filepath}')
+    print(f'startdate = {startdate_str}')
+    print(f'enddate = {enddate_str}')
+    print(f'bands = {bands}')
+    print(f'zip_filepath = {zip_filepath}')
+    print(f'njobs = {njobs}')
+    print(f's2cloudless_chunksize = {s2cloudless_chunksize}')
+    print(f'cloud_threshold = {cloud_threshold}')
+    print(f'mosaic_days = {mosaic_days}')
     
     return shapes_gdf, startdate, enddate, bands, \
         zip_filepath, njobs, s2cloudless_chunksize, \
