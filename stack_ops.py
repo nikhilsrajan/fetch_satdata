@@ -5,6 +5,8 @@ import tqdm
 import datetime
 import pandas as pd
 import numba
+import multiprocessing as mp
+import functools
 
 
 # https://stackoverflow.com/questions/77783414/using-s2cloudless-to-generate-cloud-mask-using-sentinel-2-l1c-raw-data
@@ -32,20 +34,21 @@ def _run_s2cloudless_core(
 def _run_s2cloudless_core_chunkwise(
     bands:np.ndarray,
     chunksize:int = 50,
+    njobs:int = 8,
 ):
     """
     Assumes only the 10 bands required to run the model are passed
     after normalisation
     """
     N = bands.shape[0]
-    
-    int_cmks = []
-    for i in tqdm.tqdm(range(0, N, chunksize)):
-        _int_cmk = _run_s2cloudless_core(
-            bands = bands[i:i+chunksize]
-        )
-        int_cmks.append(_int_cmk)
-        del _int_cmk
+
+    bands_chunks = [bands[i:i+chunksize] for i in range(0, N, chunksize)]
+
+    with mp.Pool(njobs) as p:
+        int_cmks = list(tqdm.tqdm(
+            p.imap(_run_s2cloudless_core, bands_chunks), 
+            total=len(bands_chunks)
+        ))
     
     return np.concatenate(int_cmks, axis=0)
 
@@ -54,6 +57,7 @@ def run_s2cloudless(
     bands:np.ndarray,
     metadata:dict,
     chunksize:int = 10,
+    njobs:int = 8,
 ):
     MODEL_BANDS = s2cloudless.utils.MODEL_BANDS
 
@@ -67,6 +71,7 @@ def run_s2cloudless(
     int_cmk = _run_s2cloudless_core_chunkwise(
         bands = (bands[:,:,:,model_band_indexes] + RADIO_ADD_OFFSET) / QUANTIFICATION_VALUE,
         chunksize = chunksize,
+        njobs = njobs,
     )
 
     bands = np.concatenate([bands, np.expand_dims(int_cmk, axis=3)], axis=3)

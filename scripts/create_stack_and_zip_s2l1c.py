@@ -17,6 +17,7 @@ import stack_ops
 def add_s2cloudless_band_and_save(
     folderpath:str,
     chunksize:int,
+    njobs:int,
 ):
     bands, metadata = create_stack.load_stack(
         folderpath = folderpath
@@ -25,6 +26,7 @@ def add_s2cloudless_band_and_save(
         bands = bands,
         metadata = metadata,
         chunksize = chunksize,
+        njobs = njobs,
     )
     create_stack.save_stack(
         bands = bands,
@@ -136,7 +138,11 @@ if __name__ == '__main__':
     mean_sun_angle_df.to_csv(os.path.join(zip_filepath, 'mean_sun_angle.csv'), index=False)
 
     print('Running s2cloudless...')
-    add_s2cloudless_band_and_save(folderpath=zip_filepath, chunksize=s2cloudless_chunksize)
+    add_s2cloudless_band_and_save(
+        folderpath = zip_filepath, 
+        chunksize = s2cloudless_chunksize,
+        njobs = njobs,
+    )
 
     print(f'Performing cloud masked median mosaicing - cloud_threshold={cloud_threshold}, mosaic_days={mosaic_days}')
     cloud_masked_median_mosaicing(
