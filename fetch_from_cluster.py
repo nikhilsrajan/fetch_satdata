@@ -66,6 +66,9 @@ def download_file_from_cluster(
 
         ftp_client.close()
 
+        if os.path.exists(download_filepath):
+            os.remove(download_filepath)
+
         os.rename(temp_download_filepath, download_filepath)
     
     return download_filepath

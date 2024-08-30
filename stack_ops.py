@@ -161,16 +161,12 @@ def median_mosaic(
     mosaic_days:int = 20,
     mask_value:int = 0,
 ) -> tuple[np.ndarray, dict]:
-    n_ts, height, width, n_bands = bands.shape
-
     ts_index_ranges = get_mosaic_ts_index_ranges(
         timestamps = metadata['timestamps'],
         startdate = startdate,
         enddate = enddate,
         mosaic_days = mosaic_days,
     )
-
-    n_mosaiced_ts = len(ts_index_ranges)
 
     dtype = bands.dtype
     bands = bands.astype(float)
