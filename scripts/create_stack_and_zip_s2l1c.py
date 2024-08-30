@@ -135,13 +135,14 @@ if __name__ == '__main__':
             "- ROI shape filepath\n"
             "- startdate (YYYY-MM-DD)\n"
             "- enddate (YYYY-MM-DD)\n"
-            "- 'all' or bands separated by comma, eg B02,B03,B04,B08\n"
+            "- 'all' or bands separated by comma, eg 'B02,B03,B04,B08'\n"
             "- zip filepath without extension\n"
             "- njobs (recommended: 16)\n"
             "- s2cloudless chunksize (recommended: 1)\n"
             "- cloud_threshold (float, 0-1)\n"
             "- mosaic_days (int)\n"
         ))
+        exit()
 
     NODATA = 0 # since the script is hardcoded for sentinel-2-l1c
 
