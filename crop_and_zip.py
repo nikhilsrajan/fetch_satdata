@@ -8,7 +8,6 @@ import sys
 sys.path.append('..')
 
 import create_stack
-import modify_images
 
 
 def crop_and_zip(

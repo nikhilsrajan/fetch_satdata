@@ -6,7 +6,6 @@ import datetime
 import pandas as pd
 import numba
 import multiprocessing as mp
-import functools
 
 
 # https://stackoverflow.com/questions/77783414/using-s2cloudless-to-generate-cloud-mask-using-sentinel-2-l1c-raw-data

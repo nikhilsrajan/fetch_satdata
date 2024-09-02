@@ -12,7 +12,7 @@ import tqdm
 import numpy as np
 import shutil
 
-import modify_images
+import rsutils.modify_images
 import rsutils.utils
 
 
@@ -189,9 +189,9 @@ def crop_and_reproject(
     os.makedirs(out_folderpath, exist_ok=True)
 
     sequence = [
-        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
-        (modify_images.reproject, dict(dst_crs=dst_crs)),
-        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
+        (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
+        (rsutils.modify_images.reproject, dict(dst_crs=dst_crs)),
+        (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
     ]
 
     if satellite_folderpath is not None:
@@ -212,7 +212,7 @@ def crop_and_reproject(
             axis = 1,
         )
 
-    successes = modify_images.modify_images(
+    successes = rsutils.modify_images.modify_images(
         src_filepaths = band_filepaths_df['filepath'],
         dst_filepaths = band_filepaths_df['out_filepath'],
         sequence = sequence,
@@ -236,9 +236,9 @@ def resample_to_selected_band_inplace(
 ):
     ref_filepath = band_filepath_dict[selected_band]
     sequence = [
-        (modify_images.resample_by_ref, dict(ref_filepath = ref_filepath,
+        (rsutils.modify_images.resample_by_ref, dict(ref_filepath = ref_filepath,
                                              resampling = resampling)),
-        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True))
+        (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True))
     ]
     filepaths = []
     for band, band_filepath in band_filepath_dict.items():
@@ -247,7 +247,7 @@ def resample_to_selected_band_inplace(
     filepaths.append(ref_filepath)
 
     for filepath in filepaths:
-        modify_images.modify_image(
+        rsutils.modify_images.modify_image(
             src_filepath = filepath,
             dst_filepath = filepath,
             sequence = sequence,
@@ -362,12 +362,12 @@ def resample_to_merge_master_inplace(
     )
 
     sequence = [
-        (modify_images.resample_by_ref, dict(ref_filepath = merge_reference_filepath,
+        (rsutils.modify_images.resample_by_ref, dict(ref_filepath = merge_reference_filepath,
                                              resampling = resampling)),
-        (modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True))
+        (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True))
     ]
 
-    modify_images.modify_images(
+    rsutils.modify_images.modify_images(
         src_filepaths = band_filepaths_df['filepath'],
         dst_filepaths = band_filepaths_df['filepath'],
         sequence = sequence,
