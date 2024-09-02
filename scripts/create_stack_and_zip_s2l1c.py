@@ -12,6 +12,7 @@ import config
 import create_stack
 import extract_metadata
 import stack_ops
+import rsutils.s2_grid_utils
 
 
 def add_s2cloudless_band_and_save(
@@ -81,7 +82,7 @@ def cloud_masked_median_mosaicing(
 
 
 def parse_args():
-    roi_filepath = sys.argv[1]
+    roi = sys.argv[1]
     startdate_str = sys.argv[2]
     enddate_str = sys.argv[3]
     bands_arg = sys.argv[4].lower()
@@ -91,7 +92,21 @@ def parse_args():
     cloud_threshold = float(sys.argv[8])
     mosaic_days = int(sys.argv[9])
 
-    shapes_gdf = gpd.read_file(roi_filepath)
+    if roi.startswith('filepath='):
+        roi_filepath = roi.removeprefix('filepath=')
+        shapes_gdf = gpd.read_file(roi_filepath)
+    elif roi.startswith('s2gridid='):
+        s2gridid = roi.removeprefix('s2gridid=')
+        s2grid_geom = rsutils.s2_grid_utils.get_grid_geometry(
+            grid_id=s2gridid, scale_fact=1.1,
+        )
+        shapes_gdf = gpd.GeoDataFrame(
+            data={'geometry':[s2grid_geom]}, 
+            crs='epsg:4326',
+        )
+    else:
+        raise ValueError(f"Invalid ROI input='{roi}'")
+
     startdate = datetime.datetime.strptime(startdate_str, '%Y-%m-%d')
     enddate = datetime.datetime.strptime(enddate_str, '%Y-%m-%d')
     if bands_arg == 'all':
@@ -132,7 +147,7 @@ if __name__ == '__main__':
     if len(sys.argv) == 1:
         print((
             "Arguments:\n"
-            "- ROI shape filepath\n"
+            "- filepath=path/to/shapefile | s2gridid=165bca4\n"
             "- startdate (YYYY-MM-DD)\n"
             "- enddate (YYYY-MM-DD)\n"
             "- 'all' or bands separated by comma, eg 'B02,B03,B04,B08'\n"
