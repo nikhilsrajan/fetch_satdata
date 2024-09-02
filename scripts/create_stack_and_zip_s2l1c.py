@@ -126,15 +126,15 @@ def parse_args():
     if mosaic_days < 0:
         raise ValueError('mosaic_days can not be negative.')
 
-    print(f'roi_filepath = {roi_filepath}')
-    print(f'startdate = {startdate_str}')
-    print(f'enddate = {enddate_str}')
-    print(f'bands = {bands}')
-    print(f'zip_filepath = {zip_filepath}')
-    print(f'njobs = {njobs}')
-    print(f's2cloudless_chunksize = {s2cloudless_chunksize}')
-    print(f'cloud_threshold = {cloud_threshold}')
-    print(f'mosaic_days = {mosaic_days}')
+    print(f'roi: {roi}')
+    print(f'startdate: {startdate_str}')
+    print(f'enddate: {enddate_str}')
+    print(f'bands: {bands}')
+    print(f'zip_filepath: {zip_filepath}')
+    print(f'njobs: {njobs}')
+    print(f's2cloudless_chunksize: {s2cloudless_chunksize}')
+    print(f'cloud_threshold: {cloud_threshold}')
+    print(f'mosaic_days: {mosaic_days}')
     
     return shapes_gdf, startdate, enddate, bands, \
         zip_filepath, njobs, s2cloudless_chunksize, \
