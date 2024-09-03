@@ -236,7 +236,7 @@ if __name__ == '__main__':
     
     s2cloudless_chunksize = args.s2cloudless
     if s2cloudless_chunksize is not None:
-        s2cloudless_chunksize = float(s2cloudless_chunksize)
+        s2cloudless_chunksize = int(s2cloudless_chunksize)
         if s2cloudless_chunksize < 0:
             raise ValueError('s2cloudless_chunksize can not be negative.')
         
