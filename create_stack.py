@@ -322,7 +322,7 @@ def resample_to_selected_band_inplace_by_df(
                 total=len(list_of_band_filepath_dicts)
             ))
         else:
-            p.imap(resample_to_selected_band_inplace_partial, list_of_band_filepath_dicts)
+            list(p.imap(resample_to_selected_band_inplace_partial, list_of_band_filepath_dicts))
 
 
 def get_shape(filepath):
