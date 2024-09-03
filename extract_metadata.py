@@ -37,7 +37,7 @@ def extract_s2l1c_mean_sun_angle(
         catalog_gdf['files'],
     )
     if print_messages:
-        iterrable = tqdm.tqdm(iterrable, total=len(iterrable))
+        iterrable = tqdm.tqdm(iterrable, total=catalog_gdf.shape[0])
 
     for _id, local_folderpath, files in iterrable:
         filenames_of_interest = set(files.split(',')) & {METADATA_FILENAME}

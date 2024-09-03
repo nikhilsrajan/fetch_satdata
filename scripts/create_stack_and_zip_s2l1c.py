@@ -193,7 +193,7 @@ if __name__ == '__main__':
     parser.add_argument('enddate', help='YYYY-MM-DD')
     parser.add_argument('bands', default='all', help='all, or bands comma separated B02,B03,B04,B08 (default = all)')
     parser.add_argument('out', help='/path/to/output')
-    parser.add_argument('njobs', default=4, help='Number of cores to use. (default = 4)')
+    parser.add_argument('--njobs', default=4, help='Number of cores to use. (default = 4)')
     parser.add_argument('-s2c', '--s2cloudless', action='store', required=False, help='Whether to run s2cloudless and if so at what chunk size.')
     parser.add_argument('-m', '--mosaic', action='store', required=False, help='Whether to perform median mosaicing and if so in intervals of how many days (most used interval: 20.')
     parser.add_argument('-c', '--cloud-threshold', action='store', default=0, required=False, help='The probabiliy threshold at and above which the pixel is considered cloud. Must be from 0 to 1.')
