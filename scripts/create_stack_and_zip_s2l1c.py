@@ -143,10 +143,11 @@ def main(
 
     if cloud_threshold is not None and mosaic_days is not None:
         if print_messages:
-            print((
+            print(
                 f'Performing cloud masked median mosaicing - '
                 f'cloud_threshold={cloud_threshold}, mosaic_days={mosaic_days} ... ',
-            ), end='')
+                end='',
+            )
         cloud_masked_median_mosaicing(
             folderpath = zip_filepath,
             cloud_threshold = cloud_threshold,
