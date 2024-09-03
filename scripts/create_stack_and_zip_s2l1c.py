@@ -4,6 +4,7 @@ import datetime
 import shutil
 import numpy as np
 import time
+import argparse
 
 import sys
 sys.path.append('..')
@@ -19,6 +20,7 @@ def add_s2cloudless_band_and_save(
     folderpath:str,
     chunksize:int,
     njobs:int,
+    print_messages:bool = True,
 ):
     bands, metadata = create_stack.load_stack(
         folderpath = folderpath
@@ -28,6 +30,7 @@ def add_s2cloudless_band_and_save(
         metadata = metadata,
         chunksize = chunksize,
         njobs = njobs,
+        print_messages = print_messages,
     )
     create_stack.save_stack(
         bands = bands,
@@ -81,93 +84,24 @@ def cloud_masked_median_mosaicing(
     )
 
 
-def parse_args():
-    roi = sys.argv[1]
-    startdate_str = sys.argv[2]
-    enddate_str = sys.argv[3]
-    bands_arg = sys.argv[4].lower()
-    zip_filepath = sys.argv[5]
-    njobs = int(sys.argv[6])
-    s2cloudless_chunksize = int(sys.argv[7])
-    cloud_threshold = float(sys.argv[8])
-    mosaic_days = int(sys.argv[9])
-
-    if roi.startswith('filepath='):
-        roi_filepath = roi.removeprefix('filepath=')
-        shapes_gdf = gpd.read_file(roi_filepath)
-    elif roi.startswith('s2gridid='):
-        s2gridid = roi.removeprefix('s2gridid=')
-        s2grid_geom = rsutils.s2_grid_utils.get_grid_geometry(
-            grid_id=s2gridid, scale_fact=1.1,
-        )
-        shapes_gdf = gpd.GeoDataFrame(
-            data={'geometry':[s2grid_geom]}, 
-            crs='epsg:4326',
-        )
-    else:
-        raise ValueError(f"Invalid ROI input='{roi}'")
-
-    startdate = datetime.datetime.strptime(startdate_str, '%Y-%m-%d')
-    enddate = datetime.datetime.strptime(enddate_str, '%Y-%m-%d')
-    if bands_arg == 'all':
-        bands = [
-            'B01', 'B02', 'B03', 'B04',
-            'B05', 'B06', 'B07', 'B08',
-            'B8A', 'B09', 'B10', 'B11',
-            'B12',
-        ]
-    else:
-        bands = bands_arg.upper().split(',')
-
-    if s2cloudless_chunksize < 0:
-        raise ValueError('s2cloudless_chunksize can not be negative.')
-    if cloud_threshold < 0 or cloud_threshold > 1:
-        raise ValueError('cloud_threshold must be from 0-1')
-    if mosaic_days < 0:
-        raise ValueError('mosaic_days can not be negative.')
-
-    print(f'roi: {roi}')
-    print(f'startdate: {startdate_str}')
-    print(f'enddate: {enddate_str}')
-    print(f'bands: {bands}')
-    print(f'zip_filepath: {zip_filepath}')
-    print(f'njobs: {njobs}')
-    print(f's2cloudless_chunksize: {s2cloudless_chunksize}')
-    print(f'cloud_threshold: {cloud_threshold}')
-    print(f'mosaic_days: {mosaic_days}')
-    
-    return shapes_gdf, startdate, enddate, bands, \
-        zip_filepath, njobs, s2cloudless_chunksize, \
-        cloud_threshold, mosaic_days
-
-
-if __name__ == '__main__':
+def main(
+    shapes_gdf:gpd.GeoDataFrame, 
+    startdate:datetime.datetime, 
+    enddate:datetime.datetime, 
+    bands:list[str],
+    zip_filepath:str, 
+    njobs:int, 
+    s2cloudless_chunksize:int=None,
+    cloud_threshold:float=1, 
+    mosaic_days=None,
+    print_messages:bool=True,
+):
     start_time = time.time()
-
-    if len(sys.argv) == 1:
-        print((
-            "Arguments:\n"
-            "- filepath=path/to/shapefile | s2gridid=165bca4\n"
-            "- startdate (YYYY-MM-DD)\n"
-            "- enddate (YYYY-MM-DD)\n"
-            "- 'all' or bands separated by comma, eg 'B02,B03,B04,B08'\n"
-            "- zip filepath without extension\n"
-            "- njobs (recommended: 16)\n"
-            "- s2cloudless chunksize (recommended: 1)\n"
-            "- cloud_threshold (float, 0-1)\n"
-            "- mosaic_days (int)\n"
-        ))
-        exit()
 
     NODATA = 0 # since the script is hardcoded for sentinel-2-l1c
 
-    print('--- inputs ---')
-
-    shapes_gdf, startdate, enddate, bands, \
-    zip_filepath, njobs, s2cloudless_chunksize, \
-    cloud_threshold, mosaic_days = parse_args()
-
-    print('--- run ---')
+    if print_messages:
+        print('--- run ---')
 
     create_stack.create_stack(
         shapes_gdf = shapes_gdf,
@@ -182,37 +116,49 @@ if __name__ == '__main__':
         resampling_ref_band = 'B08',
         delete_working_dir = True,
         satellite_folderpath = None,
+        print_messages = print_messages,
     )
 
-    print('Extracting mean_sun_angle:')
+    if print_messages:
+        print('Extracting mean_sun_angle:')
     mean_sun_angle_df = \
     extract_metadata.extract_s2l1c_mean_sun_angle(
         shapes_gdf = shapes_gdf,
         catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
         startdate = startdate,
         enddate = enddate,
+        print_messages = print_messages,
     )
     mean_sun_angle_df.to_csv(os.path.join(zip_filepath, 'mean_sun_angle.csv'), index=False)
 
-    print('Running s2cloudless:')
-    add_s2cloudless_band_and_save(
-        folderpath = zip_filepath, 
-        chunksize = s2cloudless_chunksize,
-        njobs = njobs,
-    )
+    if s2cloudless_chunksize is not None:
+        if print_messages:
+            print('Running s2cloudless:')
+        add_s2cloudless_band_and_save(
+            folderpath = zip_filepath, 
+            chunksize = s2cloudless_chunksize,
+            njobs = njobs,
+            print_messages = print_messages,
+        )
 
-    print(f'Performing cloud masked median mosaicing - '
-          f'cloud_threshold={cloud_threshold}, mosaic_days={mosaic_days} ... ', end='')
-    cloud_masked_median_mosaicing(
-        folderpath = zip_filepath,
-        cloud_threshold = cloud_threshold,
-        startdate = startdate,
-        enddate = enddate,
-        mosaic_days = mosaic_days,
-    )
-    print('Done.')
+    if cloud_threshold is not None and mosaic_days is not None:
+        if print_messages:
+            print((
+                f'Performing cloud masked median mosaicing - '
+                f'cloud_threshold={cloud_threshold}, mosaic_days={mosaic_days} ... ',
+            ), end='')
+        cloud_masked_median_mosaicing(
+            folderpath = zip_filepath,
+            cloud_threshold = cloud_threshold,
+            startdate = startdate,
+            enddate = enddate,
+            mosaic_days = mosaic_days,
+        )
+        if print_messages:
+            print('Done.')
 
-    print('Zipping files...')
+    if print_messages:
+        print('Zipping files...')
     final_zip_filepath = shutil.make_archive(
         zip_filepath,
         'zip',
@@ -221,7 +167,114 @@ if __name__ == '__main__':
 
     shutil.rmtree(zip_filepath)
 
-    print(f'Outputs zipped and saved at: {os.path.abspath(final_zip_filepath)}')
+    if print_messages:
+        print(f'Outputs zipped and saved at: {os.path.abspath(final_zip_filepath)}')
 
     end_time = time.time()
-    print(f'--- t_elapsed: {round(end_time - start_time, 2)} secs ---')
+
+    if print_messages:
+        print(f'--- t_elapsed: {round(end_time - start_time, 2)} secs ---')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        prog = 'python create_stack_and_zip_s2l1c.py',
+        description = (
+            'Script to create a datacube of S2L1C data for given shapefile '
+            'or s2grid id, and daterange. The script also runs s2cloudless to '
+            'compute cloud probability if requested, and performs median '
+            'mosaicing. The datacube is then saved into the specified folderpath '
+            'and zipped.'    
+        ),
+        epilog = '--- nsasiraj@umd.edu ---',
+    )
+    parser.add_argument('roi', help='filepath=path/to/shapefile | s2gridid=S2GridID')
+    parser.add_argument('startdate', help='YYYY-MM-DD')
+    parser.add_argument('enddate', help='YYYY-MM-DD')
+    parser.add_argument('bands', default='all', help='all, or bands comma separated B02,B03,B04,B08 (default = all)')
+    parser.add_argument('out', help='/path/to/output')
+    parser.add_argument('njobs', default=4, help='Number of cores to use. (default = 4)')
+    parser.add_argument('-s2c', '--s2cloudless', action='store', required=False, help='Whether to run s2cloudless and if so at what chunk size.')
+    parser.add_argument('-m', '--mosaic', action='store', required=False, help='Whether to perform median mosaicing and if so in intervals of how many days (most used interval: 20.')
+    parser.add_argument('-c', '--cloud-threshold', action='store', default=0, required=False, help='The probabiliy threshold at and above which the pixel is considered cloud. Must be from 0 to 1.')
+    parser.add_argument('--silent', action='store_true', help='To run the script without any print statements.')
+    args = parser.parse_args()
+
+    if args.roi.startswith('filepath='):
+        roi_filepath = args.roi.removeprefix('filepath=')
+        shapes_gdf = gpd.read_file(roi_filepath)
+    elif args.roi.startswith('s2gridid='):
+        s2gridid = args.roi.removeprefix('s2gridid=')
+        s2grid_geom = \
+        rsutils.s2_grid_utils.get_grid_geometry_from_id(
+            grid_id=s2gridid, scale_fact=1.1,
+        )
+        shapes_gdf = gpd.GeoDataFrame(
+            data={'geometry':[s2grid_geom]}, 
+            crs='epsg:4326',
+        )
+    else:
+        raise ValueError(f"Invalid ROI input='{args.roi}'. Must start with 'filepath=' or 's2gridid='.")
+
+    startdate = datetime.datetime.strptime(args.startdate, '%Y-%m-%d')
+    
+    enddate = datetime.datetime.strptime(args.enddate, '%Y-%m-%d')
+
+    if args.bands == 'all':
+        bands = [
+            'B01', 'B02', 'B03', 'B04',
+            'B05', 'B06', 'B07', 'B08',
+            'B8A', 'B09', 'B10', 'B11',
+            'B12',
+        ]
+    else:
+        bands = args.bands.upper().split(',')
+
+    zip_filepath = args.out
+
+    njobs = int(args.njobs)
+    
+    s2cloudless_chunksize = args.s2cloudless
+    if s2cloudless_chunksize is not None:
+        s2cloudless_chunksize = float(s2cloudless_chunksize)
+        if s2cloudless_chunksize < 0:
+            raise ValueError('s2cloudless_chunksize can not be negative.')
+        
+    cloud_threshold = float(args.cloud_threshold)
+    if cloud_threshold < 0 or cloud_threshold > 1:
+        raise ValueError('cloud_threshold must be from 0-1')
+    
+    mosaic_days = args.mosaic
+    if mosaic_days is not None:
+        mosaic_days = int(mosaic_days)
+        if mosaic_days < 0:
+            raise ValueError('mosaic_days can not be negative.')
+        
+    print_messages = not args.silent
+
+    if print_messages:
+        print('--- inputs ---')
+        print(f'roi: {args.roi}')
+        print(f'startdate: {args.startdate}')
+        print(f'enddate: {args.enddate}')
+        print(f'bands: {bands}')
+        print(f'out: {args.out}')
+        print(f'njobs: {njobs}')
+        if s2cloudless_chunksize is not None:
+            print(f's2cloudless_chunksize: {s2cloudless_chunksize}')
+        if mosaic_days is not None:
+            print(f'cloud_threshold: {cloud_threshold}')
+            print(f'mosaic_days: {mosaic_days}')
+
+    main(
+        shapes_gdf = shapes_gdf,
+        startdate = startdate,
+        enddate = enddate,
+        bands = bands,
+        zip_filepath = zip_filepath,
+        njobs = njobs,
+        s2cloudless_chunksize = s2cloudless_chunksize,
+        cloud_threshold = cloud_threshold,
+        mosaic_days = mosaic_days,
+        print_messages = print_messages,
+    )

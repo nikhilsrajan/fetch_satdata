@@ -34,6 +34,7 @@ def _run_s2cloudless_core_chunkwise(
     bands:np.ndarray,
     chunksize:int = 50,
     njobs:int = 8,
+    print_messages:bool = True,
 ):
     """
     Assumes only the 10 bands required to run the model are passed
@@ -44,10 +45,13 @@ def _run_s2cloudless_core_chunkwise(
     bands_chunks = [bands[i:i+chunksize] for i in range(0, N, chunksize)]
 
     with mp.Pool(njobs) as p:
-        int_cmks = list(tqdm.tqdm(
-            p.imap(_run_s2cloudless_core, bands_chunks), 
-            total=len(bands_chunks)
-        ))
+        if print_messages:
+            int_cmks = list(tqdm.tqdm(
+                p.imap(_run_s2cloudless_core, bands_chunks), 
+                total=len(bands_chunks)
+            ))
+        else:
+            int_cmks = list(p.imap(_run_s2cloudless_core, bands_chunks))
     
     return np.concatenate(int_cmks, axis=0)
 
@@ -57,6 +61,7 @@ def run_s2cloudless(
     metadata:dict,
     chunksize:int = 10,
     njobs:int = 8,
+    print_messages:bool = True,
 ):
     MODEL_BANDS = s2cloudless.utils.MODEL_BANDS
 
@@ -71,6 +76,7 @@ def run_s2cloudless(
         bands = (bands[:,:,:,model_band_indexes] + RADIO_ADD_OFFSET) / QUANTIFICATION_VALUE,
         chunksize = chunksize,
         njobs = njobs,
+        print_messages = print_messages,
     )
 
     bands = np.concatenate([bands, np.expand_dims(int_cmk, axis=3)], axis=3)

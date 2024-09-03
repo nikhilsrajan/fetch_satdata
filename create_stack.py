@@ -55,6 +55,38 @@ def filter_catalog(
     return filtered_catalog_gdf
 
 
+def query_catalog_stats(
+    catalog_filepath:str,
+    shapes_gdf:gpd.GeoDataFrame,
+    startdate:datetime,
+    enddate:datetime,
+):
+    stats = {}
+
+    filtered_catalog_gdf = filter_catalog(
+        catalog_filepath = catalog_filepath,
+        shapes_gdf = shapes_gdf,
+        startdate = startdate,
+        enddate = enddate,
+    )
+
+    target_shape = shapely.ops.unary_union(shapes_gdf['geometry'])
+    queried_shape = shapely.ops.unary_union(filtered_catalog_gdf['geometry'])
+
+    stats['area_coverage'] = 1 - (target_shape - queried_shape).area / target_shape.area
+
+    timestamps = filtered_catalog_gdf['timestamp'].to_numpy()
+    timestamps.sort()
+    timedeltas_round = [td.round('d').days for td in (timestamps[1:] - timestamps[:-1])]
+    timedeltas, counts = np.unique(timedeltas_round, return_counts=True)
+    
+    stats['timedelta_days'] = dict(zip(timedeltas, counts))
+
+    # stats[]
+
+    return stats
+
+
 def get_intersecting_band_filepaths(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
@@ -161,6 +193,7 @@ def crop_and_reproject(
     working_dir:str = None,
     njobs:int = 8,
     dst_crs = None,
+    print_messages:bool = True,
 ):
     band_filepaths_df = \
     get_intersecting_band_filepaths(
@@ -218,6 +251,7 @@ def crop_and_reproject(
         sequence = sequence,
         working_dir = working_dir,
         njobs = njobs,
+        print_messages = print_messages,
     )
 
     band_filepaths_df.drop(columns=['crs', 'filepath'], inplace=True)
@@ -263,6 +297,7 @@ def resample_to_selected_band_inplace_by_df(
     resampling = rasterio.warp.Resampling.nearest,
     working_dir:str = None,
     njobs:int = 8,
+    print_messages:bool = True,
 ):
     list_of_band_filepath_dicts = band_filepaths_df.groupby('id')[
         ['band', 'filepath']
@@ -281,10 +316,13 @@ def resample_to_selected_band_inplace_by_df(
     )
 
     with mp.Pool(njobs) as p:
-        list(tqdm.tqdm(
-            p.imap(resample_to_selected_band_inplace_partial, list_of_band_filepath_dicts), 
-            total=len(list_of_band_filepath_dicts)
-        ))
+        if print_messages:
+            list(tqdm.tqdm(
+                p.imap(resample_to_selected_band_inplace_partial, list_of_band_filepath_dicts), 
+                total=len(list_of_band_filepath_dicts)
+            ))
+        else:
+            p.imap(resample_to_selected_band_inplace_partial, list_of_band_filepath_dicts)
 
 
 def get_shape(filepath):
@@ -339,6 +377,7 @@ def resample_to_merge_master_inplace(
     working_dir:str = None,
     resampling = rasterio.warp.Resampling.nearest,
     njobs:int = 8,
+    print_messages:bool = True,
 ):
     if band_filepaths_df.shape[0] == 0:
         raise ValueError('band_filepaths_df is empty.')
@@ -373,6 +412,7 @@ def resample_to_merge_master_inplace(
         sequence = sequence,
         working_dir = working_dir,
         njobs = njobs,
+        print_messages = print_messages,
     )
 
     return merge_reference_filepath, height, width
@@ -414,8 +454,10 @@ def create_stack(
     resampling_ref_band:str = 'B08',
     delete_working_dir:bool = True,
     satellite_folderpath:str = None, # for maintaining the same folder structure
-):
-    print('Cropping tiles and reprojecting to common CRS:')
+    print_messages:bool = True,
+):  
+    if print_messages:
+        print('Cropping tiles and reprojecting to common CRS:')
     band_filepaths_df = crop_and_reproject(
         shapes_gdf = shapes_gdf,
         catalog_filepath = catalog_filepath,
@@ -428,9 +470,11 @@ def create_stack(
         working_dir = working_dir,
         njobs = njobs,
         dst_crs = dst_crs,
+        print_messages = print_messages,
     )
 
-    print(f'Resampling cropped images to resolution of {resampling_ref_band} band:')
+    if print_messages:
+        print(f'Resampling cropped images to resolution of {resampling_ref_band} band:')
     resample_to_selected_band_inplace_by_df(
         band_filepaths_df = band_filepaths_df,
         shapes_gdf = shapes_gdf,
@@ -439,9 +483,11 @@ def create_stack(
         resampling = resampling,
         working_dir = working_dir,
         njobs = njobs,
+        print_messages = print_messages,
     )
 
-    print(f'Resampling cropped images to merged shape:')
+    if print_messages:
+        print(f'Resampling cropped images to merged shape:')
     merge_reference_filepath, height, width \
     = resample_to_merge_master_inplace(
         band_filepaths_df = band_filepaths_df,
@@ -451,6 +497,7 @@ def create_stack(
         working_dir = working_dir,
         resampling = resampling,
         njobs = njobs,
+        print_messages = print_messages,
     )
 
     os.remove(merge_reference_filepath)

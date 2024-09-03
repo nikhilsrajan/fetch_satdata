@@ -13,6 +13,7 @@ def extract_s2l1c_mean_sun_angle(
     catalog_filepath:str,
     startdate:datetime.datetime,
     enddate:datetime.datetime,
+    print_messages:bool = True,
 ):
     METADATA_FILENAME = 'MTD_TL.xml'
 
@@ -30,11 +31,15 @@ def extract_s2l1c_mean_sun_angle(
         'zenith (deg)': [],
     }
 
-    for _id, local_folderpath, files in tqdm.tqdm(zip(
+    iterrable = zip(
         catalog_gdf['id'],
         catalog_gdf['local_folderpath'],
         catalog_gdf['files'],
-    ), total=catalog_gdf.shape[0]):
+    )
+    if print_messages:
+        iterrable = tqdm.tqdm(iterrable, total=len(iterrable))
+
+    for _id, local_folderpath, files in iterrable:
         filenames_of_interest = set(files.split(',')) & {METADATA_FILENAME}
 
         data['id'].append(_id)
