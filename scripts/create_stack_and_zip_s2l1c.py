@@ -187,7 +187,7 @@ if __name__ == '__main__':
             'mosaicing. The datacube is then saved into the specified folderpath '
             'and zipped.'    
         ),
-        epilog = '--- nsasiraj@umd.edu ---',
+        epilog = '--- Send your complaints to nsasiraj@umd.edu ---',
     )
     parser.add_argument('roi', help='filepath=path/to/shapefile | s2gridid=S2GridID')
     parser.add_argument('startdate', help='YYYY-MM-DD')
