@@ -143,13 +143,13 @@ def main(
         enddate = enddate,
         print_messages = print_messages,
     )
-    mean_sun_angle_df.to_csv(os.path.join(zip_filepath, 'mean_sun_angle.csv'), index=False)
+    mean_sun_angle_df.to_csv(os.path.join(out_folderpath, 'mean_sun_angle.csv'), index=False)
 
     if s2cloudless_chunksize is not None:
         if print_messages:
             print('Running s2cloudless:')
         add_s2cloudless_band_and_save(
-            folderpath = zip_filepath, 
+            folderpath = out_folderpath, 
             chunksize = s2cloudless_chunksize,
             njobs = njobs,
             print_messages = print_messages,
@@ -163,7 +163,7 @@ def main(
                 end='',
             )
         cloud_masked_median_mosaicing(
-            folderpath = zip_filepath,
+            folderpath = out_folderpath,
             cloud_threshold = cloud_threshold,
             startdate = startdate,
             enddate = enddate,
