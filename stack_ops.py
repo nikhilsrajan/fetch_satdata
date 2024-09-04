@@ -134,7 +134,7 @@ def get_mosaic_ts_index_ranges(
             ts_indexes.append([index])
             cur_interval_index += 1
 
-    ts_index_ranges = [(min(index_list), max(index_list)) for index_list in ts_indexes]
+    ts_index_ranges = [(min(index_list), max(index_list)) for index_list in ts_indexes if len(index_list) > 0]
 
     return ts_index_ranges
 
