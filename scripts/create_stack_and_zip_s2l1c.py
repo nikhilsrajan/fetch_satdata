@@ -286,7 +286,7 @@ if __name__ == '__main__':
         print(f'startdate: {args.startdate}')
         print(f'enddate: {args.enddate}')
         print(f'bands: {bands}')
-        print(f'out: {args.out}')
+        print(f'out: {zip_filepath}')
         print(f'njobs: {njobs}')
         if s2cloudless_chunksize is not None:
             print(f's2cloudless_chunksize: {s2cloudless_chunksize}')
