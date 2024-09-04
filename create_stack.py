@@ -152,7 +152,7 @@ def check_if_there_are_files_missing(
             td_msg = td_msg[:-1] # removing the last comma
             msgs.append(td_msg)
 
-        first_image_gap_days = (pd.Timestamp(startdate, tz='UTC') - stats['timestamp_range'][0]).days
+        first_image_gap_days = (stats['timestamp_range'][0] - pd.Timestamp(startdate, tz='UTC')).days
         last_image_gap_days = (pd.Timestamp(enddate, tz='UTC') - stats['timestamp_range'][1]).days
         if first_image_gap_days > max_timedelta:
             missing_flags['time'] = True
