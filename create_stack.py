@@ -156,10 +156,10 @@ def check_if_there_are_files_missing(
         last_image_gap_days = (pd.Timestamp(enddate, tz='UTC') - stats['timestamp_range'][1]).days
         if first_image_gap_days > max_timedelta:
             missing_flags['time'] = True
-            msgs.append(f'First image is {first_image_gap_days} days from startdate')
+            msgs.append(f'First available image is {first_image_gap_days} days from startdate')
         if last_image_gap_days > max_timedelta:
             missing_flags['time'] = True
-            msgs.append(f'Last image is {last_image_gap_days} days from enddate')
+            msgs.append(f'Last available image is {last_image_gap_days} days from enddate')
         
         completely_missing_files = []
         partially_missing_files = []
@@ -570,12 +570,13 @@ def create_stack(
     )
     # If there are no files present raise error no matter.
     if missing_flags['all']:
-        raise ValueError(msg)
+        raise ValueError('Missing files error\n' + msg)
     if any(missing_flags.values()):
         if if_missing_files == 'raise_error':
-            raise ValueError(msg)
+            raise ValueError('Missing files error\n' + msg)
         elif if_missing_files == 'warn':
-            warnings.warn(message=msg)
+            warnings.warn(message = 'Missing files warning\n' + msg, 
+                          category = RuntimeWarning)
 
     if print_messages:
         print('Cropping tiles and reprojecting to common CRS:')
