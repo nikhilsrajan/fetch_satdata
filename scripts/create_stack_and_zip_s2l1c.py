@@ -113,14 +113,16 @@ def main(
     if print_messages:
         print('--- run ---')
 
+    out_folderpath = zip_filepath.removesuffix('.zip')
+
     create_stack.create_stack(
         shapes_gdf = shapes_gdf,
         catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
         startdate = startdate,
         enddate = enddate,
         bands = bands,
-        out_folderpath = zip_filepath,
-        working_dir = zip_filepath,
+        out_folderpath = out_folderpath,
+        working_dir = out_folderpath,
         nodata = NODATA,
         njobs = njobs,
         resampling_ref_band = resampling_ref_band,
@@ -173,12 +175,12 @@ def main(
     if print_messages:
         print('Zipping files...')
     final_zip_filepath = shutil.make_archive(
-        zip_filepath,
+        out_folderpath,
         'zip',
-        zip_filepath,
+        out_folderpath,
     )
 
-    shutil.rmtree(zip_filepath)
+    shutil.rmtree(out_folderpath)
 
     if print_messages:
         print(f'Outputs zipped and saved at: {os.path.abspath(final_zip_filepath)}')
@@ -245,7 +247,7 @@ if __name__ == '__main__':
     else:
         bands = args.bands.upper().split(',')
 
-    zip_filepath = args.out
+    zip_filepath = args.out.removesuffix('.zip') + '.zip'
 
     njobs = int(args.njobs)
     
