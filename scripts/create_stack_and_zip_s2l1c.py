@@ -84,6 +84,13 @@ def cloud_masked_median_mosaicing(
     )
 
 
+REF_BAND_ORDER = [
+    'B08', 'B04', 'B03', 'B02', # 10m
+    'B8A', 'B11', 'B12', 'B05', 'B06', 'B07', # 20m
+    'B01', 'B09', 'B10', # 60m
+]
+
+
 def main(
     shapes_gdf:gpd.GeoDataFrame, 
     startdate:datetime.datetime, 
@@ -91,14 +98,17 @@ def main(
     bands:list[str],
     zip_filepath:str, 
     njobs:int, 
-    s2cloudless_chunksize:int=None,
-    cloud_threshold:float=1, 
-    mosaic_days=None,
-    print_messages:bool=True,
+    resampling_ref_band:str,
+    s2cloudless_chunksize:int = None,
+    cloud_threshold:float = 1, 
+    mosaic_days = None,
+    print_messages:bool = True,
+    if_missing_files:bool = 'raise_error',
 ):
     start_time = time.time()
 
     NODATA = 0 # since the script is hardcoded for sentinel-2-l1c
+    EXT = '.jp2' # since the script is hardcoded for sentinel-2-l1c
 
     if print_messages:
         print('--- run ---')
@@ -113,10 +123,12 @@ def main(
         working_dir = zip_filepath,
         nodata = NODATA,
         njobs = njobs,
-        resampling_ref_band = 'B08',
+        resampling_ref_band = resampling_ref_band,
         delete_working_dir = True,
         satellite_folderpath = None,
         print_messages = print_messages,
+        ext = EXT,
+        if_missing_files = if_missing_files,
     )
 
     if print_messages:
@@ -199,6 +211,8 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--mosaic', action='store', required=False, help='Whether to perform median mosaicing and if so in intervals of how many days (most used interval: 20.')
     parser.add_argument('-c', '--cloud-threshold', action='store', default=0, required=False, help='The probabiliy threshold at and above which the pixel is considered cloud. Must be from 0 to 1.')
     parser.add_argument('--silent', action='store_true', help='To run the script without any print statements.')
+    parser.add_argument('--ignore-missing-files', action='store_true', help='If there are missing files for requested region and date range, this option ignores the error and proceeds, except when there are no files present.')
+    parser.add_argument('--warn-missing-files', action='store_true', help='If there are missing files for requested region and date range, this option raises a warning and proceeds, except when there are no files present.')
     args = parser.parse_args()
 
     if args.roi.startswith('filepath='):
@@ -253,6 +267,17 @@ if __name__ == '__main__':
         
     print_messages = not args.silent
 
+    if_missing_files = 'raise_error'
+    if args.ignore_missing_files:
+        if_missing_files = None
+    if args.warn_missing_files:
+        if_missing_files = 'warn'
+
+    for ref_band_candidate in REF_BAND_ORDER:
+        if ref_band_candidate in bands:
+            resampling_ref_band = ref_band_candidate
+            break
+
     if print_messages:
         print('--- inputs ---')
         print(f'roi: {args.roi}')
@@ -266,6 +291,9 @@ if __name__ == '__main__':
         if mosaic_days is not None:
             print(f'cloud_threshold: {cloud_threshold}')
             print(f'mosaic_days: {mosaic_days}')
+        if if_missing_files is not None:
+            print(f'if_missing_files: {if_missing_files}')
+        print(f'resampling_ref_band: {resampling_ref_band}')
 
     main(
         shapes_gdf = shapes_gdf,
@@ -278,4 +306,6 @@ if __name__ == '__main__':
         cloud_threshold = cloud_threshold,
         mosaic_days = mosaic_days,
         print_messages = print_messages,
+        if_missing_files = if_missing_files,
+        resampling_ref_band = resampling_ref_band,
     )

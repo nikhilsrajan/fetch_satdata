@@ -11,6 +11,7 @@ import multiprocessing as mp
 import tqdm
 import numpy as np
 import shutil
+import warnings
 
 import rsutils.modify_images
 import rsutils.utils
@@ -61,7 +62,15 @@ def query_catalog_stats(
     startdate:datetime,
     enddate:datetime,
 ):
-    stats = {}
+    stats = {
+        k: None for k in [
+            'tile_count',
+            'area_coverage',
+            'timedelta_days',
+            'timestamp_range',
+            'file_counts',
+        ]
+    }
 
     filtered_catalog_gdf = filter_catalog(
         catalog_filepath = catalog_filepath,
@@ -69,6 +78,13 @@ def query_catalog_stats(
         startdate = startdate,
         enddate = enddate,
     )
+
+    tile_count = filtered_catalog_gdf.shape[0]
+
+    stats['tile_count'] = tile_count
+
+    if tile_count == 0:
+        return stats
 
     target_shape = shapely.ops.unary_union(shapes_gdf['geometry'])
     queried_shape = shapely.ops.unary_union(filtered_catalog_gdf['geometry'])
@@ -78,13 +94,81 @@ def query_catalog_stats(
     timestamps = filtered_catalog_gdf['timestamp'].to_numpy()
     timestamps.sort()
     timedeltas_round = [td.round('d').days for td in (timestamps[1:] - timestamps[:-1])]
-    timedeltas, counts = np.unique(timedeltas_round, return_counts=True)
-    
-    stats['timedelta_days'] = dict(zip(timedeltas, counts))
 
-    # stats[]
+    stats['timedelta_days'] = dict(zip(*np.unique(timedeltas_round, return_counts=True)))
+
+    stats['timestamp_range'] = (timestamps.min(), timestamps.max())
+
+    files = []
+    for _files in filtered_catalog_gdf['files']:
+        files += _files.split(',')
+
+    stats['file_counts'] = dict(zip(*np.unique(files, return_counts=True)))
 
     return stats
+
+
+def check_if_there_are_files_missing(
+    shapes_gdf:gpd.GeoDataFrame,
+    catalog_filepath:str,
+    startdate:datetime.datetime,
+    enddate:datetime.datetime,
+    files:list[str],
+    max_timedelta:int = 5,
+):
+    stats = query_catalog_stats(
+        catalog_filepath = catalog_filepath,
+        shapes_gdf = shapes_gdf,
+        startdate = startdate,
+        enddate = enddate,
+    )
+
+    missing_flags = {
+        'all': False,
+        'area': False,
+        'time': False,
+        'files': False,
+    }
+
+    msgs = []
+
+    if stats['tile_count'] == 0:
+        for k in missing_flags.keys():
+            missing_flags[k] = True
+        msgs.append('No tiles found.')
+    else:
+        if stats['area_coverage'] < 1:
+            missing_flags['area'] = True
+            msgs.append(f"Incompelete area coverage: {round(stats['area_coverage'] * 100, 2)}%")
+
+        time_msg = None
+        for td in stats['timedelta_days'].keys():
+            if td > max_timedelta:
+                if time_msg is None:
+                    time_msg = 'Unusual time gaps found (days):'
+                time_msg += f' {td},'
+                missing_flags['time'] = True
+        if time_msg is not None:
+            time_msg = time_msg[:-1] # removing the last comma
+            msgs.append(time_msg)
+        
+        completely_missing_files = []
+        partially_missing_files = []
+        for file in files:
+            if file not in stats['file_counts'].keys():
+                missing_flags['files'] = True
+                completely_missing_files.append(file)
+            elif stats['file_counts'][file] < stats['tile_count']:
+                missing_flags['files'] = True
+                partially_missing_files.append(file)
+        if len(completely_missing_files) > 0:
+            msgs.append(f'Completely missing files: {completely_missing_files}')
+        if len(partially_missing_files) > 0:
+            msgs.append(f'Partially missing files: {partially_missing_files}')
+
+    msg = '\n'.join(msgs)
+
+    return stats, missing_flags, msg
 
 
 def get_intersecting_band_filepaths(
@@ -194,6 +278,7 @@ def crop_and_reproject(
     njobs:int = 8,
     dst_crs = None,
     print_messages:bool = True,
+    ext:str = '.jp2',
 ):
     band_filepaths_df = \
     get_intersecting_band_filepaths(
@@ -202,6 +287,7 @@ def crop_and_reproject(
         enddate = enddate,
         catalog_filepath = catalog_filepath,
         bands = bands,
+        ext = ext,
     )
 
     if band_filepaths_df.shape[0] == 0:
@@ -452,10 +538,36 @@ def create_stack(
     dst_crs = None,
     resampling = rasterio.warp.Resampling.nearest,
     resampling_ref_band:str = 'B08',
+    ext:str = '.jp2',
     delete_working_dir:bool = True,
     satellite_folderpath:str = None, # for maintaining the same folder structure
     print_messages:bool = True,
+    if_missing_files:bool = 'raise_error', # options: ['raise_error', 'warn', None]
 ):  
+    VALID_IF_MISSING_FILES_OPTIONS = ['raise_error', 'warn', None]
+    if not any([if_missing_files is x for x in VALID_IF_MISSING_FILES_OPTIONS]):
+        raise ValueError(
+            f'Invalid if_missing_files={if_missing_files}. '
+            f'if_missing_files must be from {VALID_IF_MISSING_FILES_OPTIONS}'
+        )
+
+    query_stats, missing_flags, msg = \
+    check_if_there_are_files_missing(
+        catalog_filepath = catalog_filepath,
+        shapes_gdf = shapes_gdf,
+        startdate = startdate,
+        enddate = enddate,
+        files = [f'{band}{ext}' for band in bands],
+    )
+    # If there are no files present raise error no matter.
+    if missing_flags['all']:
+        raise ValueError(msg)
+    if any(missing_flags.values()):
+        if if_missing_files == 'raise_error':
+            raise ValueError(msg)
+        elif if_missing_files == 'warn':
+            warnings.warn(message=msg)
+
     if print_messages:
         print('Cropping tiles and reprojecting to common CRS:')
     band_filepaths_df = crop_and_reproject(
@@ -471,6 +583,7 @@ def create_stack(
         njobs = njobs,
         dst_crs = dst_crs,
         print_messages = print_messages,
+        ext = ext,
     )
 
     if print_messages:
