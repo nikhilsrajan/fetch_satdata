@@ -141,16 +141,25 @@ def check_if_there_are_files_missing(
             missing_flags['area'] = True
             msgs.append(f"Incompelete area coverage: {round(stats['area_coverage'] * 100, 2)}%")
 
-        time_msg = None
+        td_msg = None
         for td in stats['timedelta_days'].keys():
             if td > max_timedelta:
-                if time_msg is None:
-                    time_msg = 'Unusual time gaps found (days):'
-                time_msg += f' {td},'
+                if td_msg is None:
+                    td_msg = 'Unusual time gaps found (days):'
+                td_msg += f' {td},'
                 missing_flags['time'] = True
-        if time_msg is not None:
-            time_msg = time_msg[:-1] # removing the last comma
-            msgs.append(time_msg)
+        if td_msg is not None:
+            td_msg = td_msg[:-1] # removing the last comma
+            msgs.append(td_msg)
+
+        first_image_gap_days = (pd.Timestamp(startdate, tz='UTC') - stats['timestamp_range'][0]).days
+        last_image_gap_days = (pd.Timestamp(enddate, tz='UTC') - stats['timestamp_range'][1]).days
+        if first_image_gap_days > max_timedelta:
+            missing_flags['time'] = True
+            msgs.append(f'First image is {first_image_gap_days} days from startdate')
+        if last_image_gap_days > max_timedelta:
+            missing_flags['time'] = True
+            msgs.append(f'Last image is {last_image_gap_days} days from enddate')
         
         completely_missing_files = []
         partially_missing_files = []
