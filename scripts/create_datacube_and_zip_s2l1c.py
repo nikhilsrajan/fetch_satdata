@@ -10,76 +10,29 @@ import sys
 sys.path.append('..')
 
 import config
-import create_stack
+import create_datacube
 import extract_metadata
-import stack_ops
+import datacube_ops
 import rsutils.s2_grid_utils
 
 
-def add_s2cloudless_band_and_save(
+def run_datacube_ops(
     folderpath:str,
-    chunksize:int,
-    njobs:int,
+    sequence:list,
     print_messages:bool = True,
 ):
-    bands, metadata = create_stack.load_stack(
+    bands, metadata = create_datacube.load_datacube(
         folderpath = folderpath
     )
-    bands, metadata = stack_ops.run_s2cloudless(
+    bands, metadata = datacube_ops.run_datacube_ops(
         bands = bands,
         metadata = metadata,
-        chunksize = chunksize,
-        njobs = njobs,
+        sequence = sequence,
         print_messages = print_messages,
     )
-    create_stack.save_stack(
+    create_datacube.save_datacube(
         bands = bands,
         metadata = metadata,
-        folderpath = folderpath,
-    )
-
-
-def cloud_masked_median_mosaicing(
-    folderpath:str,
-    cloud_threshold:float,
-    startdate:datetime.datetime,
-    enddate:datetime.datetime,
-    mosaic_days:int,
-):
-    if cloud_threshold < 0 or cloud_threshold > 1:
-        raise ValueError('cloud_threshold must be from 0-1')
-    if mosaic_days < 0:
-        raise ValueError('mosaic_days can not be negative.')
-
-    bands, metadata = create_stack.load_stack(
-        folderpath = folderpath
-    )
-    band_indices = {band:index for index,band in enumerate(metadata['bands'])}
-    if 'CMK' not in band_indices.keys():
-        raise ValueError(f'CMK band not present in bands in folderpath: {folderpath}')
-    
-    cmk_index = band_indices['CMK']
-    non_cmk_indices = [band_indices[band] for band in metadata['bands'] if band!='CMK']
-
-    cmk = bands[:,:,:,cmk_index]
-    bands_wo_cmk = bands[:,:,:,non_cmk_indices]
-
-    bands_wo_cmk[np.where(cmk >= cloud_threshold * 10000)] = 0
-
-    metadata['bands'].remove('CMK')
-
-    mosaiced_bands, mosaiced_metadata \
-    = stack_ops.median_mosaic(
-        bands = bands_wo_cmk, 
-        metadata = metadata,
-        startdate = startdate,
-        enddate = enddate,
-        mosaic_days = mosaic_days,
-    )
-
-    create_stack.save_stack(
-        bands = mosaiced_bands,
-        metadata = mosaiced_metadata,
         folderpath = folderpath,
     )
 
@@ -115,7 +68,7 @@ def main(
 
     out_folderpath = zip_filepath.removesuffix('.zip')
 
-    create_stack.create_stack(
+    create_datacube.create_datadube(
         shapes_gdf = shapes_gdf,
         catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
         startdate = startdate,
@@ -145,32 +98,33 @@ def main(
     )
     mean_sun_angle_df.to_csv(os.path.join(out_folderpath, 'mean_sun_angle.csv'), index=False)
 
-    if s2cloudless_chunksize is not None:
-        if print_messages:
-            print('Running s2cloudless:')
-        add_s2cloudless_band_and_save(
-            folderpath = out_folderpath, 
-            chunksize = s2cloudless_chunksize,
-            njobs = njobs,
-            print_messages = print_messages,
-        )
+    datacube_ops_sequence = []
 
+    if s2cloudless_chunksize is not None:
+        datacube_ops_sequence.append((
+            datacube_ops.run_s2cloudless, dict(chunksize = s2cloudless_chunksize, 
+                                               njobs = njobs, 
+                                               print_messages = print_messages)
+        ))
+    
     if cloud_threshold is not None and mosaic_days is not None:
-        if print_messages:
-            print(
-                f'Performing cloud masked median mosaicing - '
-                f'cloud_threshold={cloud_threshold}, mosaic_days={mosaic_days} ... ',
-                end='',
-            )
-        cloud_masked_median_mosaicing(
-            folderpath = out_folderpath,
-            cloud_threshold = cloud_threshold,
-            startdate = startdate,
-            enddate = enddate,
-            mosaic_days = mosaic_days,
-        )
-        if print_messages:
-            print('Done.')
+        datacube_ops_sequence.append((
+            datacube_ops.apply_cloud_mask, dict(cloud_threshold = cloud_threshold * 10000)
+        ))
+        datacube_ops_sequence.append((
+            datacube_ops.drop_bands, dict(bands_to_drop = ['CMK'])
+        ))
+        datacube_ops_sequence.append((
+            datacube_ops.median_mosaic, dict(startdate = startdate,
+                                             enddate = enddate,
+                                             mosaic_days = mosaic_days,)
+        ))
+
+    run_datacube_ops(
+        folderpath = out_folderpath,
+        sequence = datacube_ops_sequence,
+        print_messages = print_messages,
+    )
 
     if print_messages:
         print('Zipping files...')

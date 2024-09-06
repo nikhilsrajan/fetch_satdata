@@ -8,8 +8,7 @@ import datetime
 import pandas as pd
 
 import sshcreds
-import create_stack
-
+import create_datacube
 
 
 FOLDERPATH_SATELLITE = '/gpfs/data1/cmongp2/sasirajann/fetch_satdata/data/satellite/'
@@ -161,7 +160,7 @@ def download_intersecting_sentinel2_tiles_from_cluster(
     )
 
     band_filepaths_df:pd.DataFrame = \
-    create_stack.get_intersecting_band_filepaths(
+    create_datacube.get_intersecting_band_filepaths(
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,

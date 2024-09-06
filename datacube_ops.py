@@ -15,6 +15,25 @@ QUANTIFICATION_VALUE = 10000
 RADIO_ADD_OFFSET = -1000
 
 
+"""
+A datacube is defined here as a 4d numpy array - dimensions being (timestamps, height, width, bands)
+Datacube is the output of `create_datacube` function in the module of the same name.
+"""
+
+
+def run_datacube_ops(
+    bands:np.ndarray,
+    metadata:dict,
+    sequence:list,
+    print_messages:bool=True,
+):
+    for func, kwargs in sequence:
+        if print_messages:
+            print(f'Running {func.__qualname__}')
+        bands, metadata = func(bands=bands, metadata=metadata, **kwargs)
+    return bands, metadata
+
+
 def _run_s2cloudless_core(
     bands:np.ndarray,
 ):
@@ -191,5 +210,59 @@ def median_mosaic(
 
     mosaiced_metadata = copy.deepcopy(metadata)
     mosaiced_metadata['mosaic_index_intervals'] = ts_index_ranges
+    mosaiced_metadata['previous_timestamps'] = metadata['timestamps']
+    mosaiced_metadata['timestamps'] = [
+        metadata['timestamps'][ts_index_range[0]] for ts_index_range in ts_index_ranges
+    ]
+    mosaiced_metadata['data_shape_desc'] = ('timestamps', 'height', 'width', 'bands')
 
     return mosaiced_bands, mosaiced_metadata
+
+
+def apply_cloud_mask(
+    bands:np.ndarray,
+    metadata:dict,
+    cloud_threshold:float,
+    bands_to_modify:list[str]=None,
+    mask_value = 0,
+):
+    band_indices = {band:index for index,band in enumerate(metadata['bands'])}
+
+    if 'CMK' not in band_indices.keys():
+        raise ValueError(f'CMK band not present in datacube')
+    
+    if bands_to_modify is None:
+        bands_to_modify = list(band_indices.keys())
+        bands_to_modify.remove('CMK')
+    
+    present_bands_to_modify = set(bands_to_modify) & set(band_indices.keys())
+
+    band_indices_to_modify = [
+        band_indices[bandname] for bandname in present_bands_to_modify
+    ]
+
+    cmk_index = band_indices['CMK']
+
+    cmk = bands[:,:,:,cmk_index]
+    selected_bands = bands[:,:,:,band_indices_to_modify]
+
+    selected_bands[np.where(cmk >= cloud_threshold)] = mask_value
+
+    bands[:,:,:,band_indices_to_modify] = selected_bands
+
+    return bands, metadata
+
+
+def drop_bands(
+    bands:np.ndarray,
+    metadata:dict,
+    bands_to_drop:list[str],
+):
+    band_indices = {band:index for index,band in enumerate(metadata['bands'])}
+
+    bands_to_keep = [band for band in band_indices.keys() if band not in bands_to_drop]
+    band_indices_to_keep = [index for band, index in band_indices.items() if band in bands_to_keep]
+    bands = bands[:,:,:,band_indices_to_keep]
+    metadata['bands'] = bands_to_keep
+
+    return bands, metadata

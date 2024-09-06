@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import tqdm
 
-import create_stack
+import create_datacube
 
 
 def extract_s2l1c_mean_sun_angle(
@@ -17,7 +17,7 @@ def extract_s2l1c_mean_sun_angle(
 ):
     METADATA_FILENAME = 'MTD_TL.xml'
 
-    catalog_gdf = create_stack.filter_catalog(
+    catalog_gdf = create_datacube.filter_catalog(
         catalog_filepath = catalog_filepath,
         shapes_gdf = shapes_gdf,
         startdate = startdate,

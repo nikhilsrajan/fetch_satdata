@@ -1,13 +1,12 @@
 import geopandas as gpd
 import datetime
 import os
-import rasterio
 import shutil
 
 import sys
 sys.path.append('..')
 
-import create_stack
+import create_datacube
 
 
 def crop_and_zip(
@@ -25,7 +24,7 @@ def crop_and_zip(
 ):
     out_folderpath = zip_filepath.removesuffix('.zip')
 
-    band_filepaths_df = create_stack.crop_and_reproject(
+    band_filepaths_df = create_datacube.crop_and_reproject(
         shapes_gdf = shapes_gdf,
         catalog_filepath = catalog_filepath,
         startdate = startdate,

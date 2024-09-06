@@ -513,7 +513,7 @@ def resample_to_merge_master_inplace(
     return merge_reference_filepath, height, width
 
 
-def save_stack(
+def save_datacube(
     bands:np.ndarray,
     metadata:dict,
     folderpath:str,
@@ -526,7 +526,7 @@ def save_stack(
     return bandstack_filepath, metadata_filepath
 
 
-def load_stack(folderpath:str)->tuple[np.ndarray, dict]:
+def load_datacube(folderpath:str)->tuple[np.ndarray, dict]:
     bandstack_filepath = os.path.join(folderpath, 'bands.npy')
     metadata_filepath = os.path.join(folderpath, 'metadata.pickle.npy')
     bands = np.load(bandstack_filepath)
@@ -534,7 +534,7 @@ def load_stack(folderpath:str)->tuple[np.ndarray, dict]:
     return bands, metadata
 
 
-def create_stack(
+def create_datadube(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
     startdate:datetime.datetime,
@@ -672,7 +672,7 @@ def create_stack(
     if delete_working_dir:
         shutil.rmtree(working_dir)
 
-    return save_stack(
+    return save_datacube(
         bands = stack,
         metadata = metadata,
         folderpath = out_folderpath,
