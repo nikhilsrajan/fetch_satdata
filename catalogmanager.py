@@ -95,7 +95,7 @@ class CatalogManager(object):
         first_entry = _id not in self.catalog_gdf.index
 
         for col, value in entry.items():
-            col_dtype = self.col
+            col_dtype = self.cols_dtype_dict[col]
             entry_modified_dict[col] = False
             if value is None:
                 if first_entry:
