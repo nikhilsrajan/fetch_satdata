@@ -29,7 +29,7 @@ def run_datacube_ops(
 ):
     for func, kwargs in sequence:
         if print_messages:
-            print(f'Running {func.__qualname__}')
+            print(f'Running {func.__qualname__} -- kwargs={kwargs}')
         bands, metadata = func(bands=bands, metadata=metadata, **kwargs)
     return bands, metadata
 

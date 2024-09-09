@@ -13,173 +13,18 @@ import cdseutils.mydataclasses
 import cdseutils.utils
 import cdseutils.constants
 import cdseutils.sentinel2
+import catalogmanager as cm
 
 
-class CatalogManager(object):
-    COLUMNS = [
-        'id', 'timestamp', 's3url', 'local_folderpath', 
-        'files', 'last_update', 'cloud_cover', 'geometry',
-    ]
-    EPSG_4326 = 'epsg:4326'
-
-
-    def __init__(self, catalog_filepath:str):
-        self.catalog_filepath = catalog_filepath
-
-        folderpath = os.path.split(catalog_filepath)[0]
-        os.makedirs(folderpath, exist_ok=True)
-        if not os.access(folderpath, os.W_OK):
-            raise ValueError(
-                f'User does not have the permission to write catalog '
-                f'in folderpath={folderpath}. Set a new catalog_filepath.'
-            )
-
-        if os.path.exists(self.catalog_filepath):
-            self.catalog_gdf:gpd.GeoDataFrame = gpd.read_file(self.catalog_filepath)
-            self.catalog_gdf = self.catalog_gdf.set_index('id')
-        else:
-            # it was difficult to figure out how to set the dtypes for each columns correctly
-            # the work around implemented is to initialise with placeholders and let geopandas
-            # figure out the dtype by itself.
-            self.catalog_gdf = gpd.GeoDataFrame(
-                data = {
-                    'id': ['blah'],
-                    'timestamp': [pd.Timestamp('2021-01-28 07:57:53.635000+0000', tz='UTC')],
-                    's3url': ['blah'],
-                    'local_folderpath': ['blah'],
-                    'files': ['blah'],
-                    'last_update': [pd.Timestamp('2021-01-28 07:57:53.635000+0000', tz='UTC')],
-                    'cloud_cover': [0.0],
-                    'geometry': [
-                        shapely.MultiPolygon([
-                            shapely.Polygon([
-                                (38.09192035575927, 8.141009568663828), 
-                                (39.08858871535991, 8.142015435187918), 
-                                (39.088384163693355, 7.148816474425373), 
-                                (38.09401676842014, 7.147934625992314), 
-                                (38.09192035575927, 8.141009568663828),
-                            ])
-                        ])
-                    ],
-                },
-                crs = CatalogManager.EPSG_4326
-            ).set_index('id').drop(index='blah')
-
-    
-    @staticmethod
-    def get_current_timestamp():
-        return pd.Timestamp(datetime.datetime.now(), tz='UTC')
-    
-
-    def add(
-        self, 
-        _id:str, 
-        timestamp:pd.Timestamp = None,
-        s3url:str = None,
-        local_folderpath:str = None,
-        files:list[str] = None,
-        cloud_cover:float = None,
-        geometry_epsg_4326:shapely.Geometry = None,
-    ):
-        performed_update = False
-
-        entry_modified_dict = {}
-
-        first_entry = _id not in self.catalog_gdf.index
-
-        for col, value in [
-            ('timestamp', timestamp),
-            ('s3url', s3url),
-            ('local_folderpath', local_folderpath),
-            ('files', files),
-            ('cloud_cover', cloud_cover),
-            ('geometry', geometry_epsg_4326),
-        ]:
-            entry_modified_dict[col] = False
-            if value is None:
-                if first_entry:
-                    raise ValueError(
-                        f'First entry for col={col} can not be None for id={_id}'
-                    )
-                else:
-                    continue
-            else:
-                if col == 'files':
-                    updated_files = set(value)
-                    if not first_entry:
-                        current_files = self.catalog_gdf.loc[_id, col].split(',')
-                        if current_files != value:
-                            entry_modified_dict[col] = True
-                        updated_files = set(current_files) | set(value)
-                    else:
-                        entry_modified_dict[col] = True
-                    self.catalog_gdf.loc[_id, col] = ','.join(updated_files)
-                else:
-                    if not first_entry:
-                        if self.catalog_gdf.loc[_id, col] != value:
-                            entry_modified_dict[col] = True
-                    else:
-                        entry_modified_dict[col] = True
-                    self.catalog_gdf.loc[_id, col] = value
-                        
-        
-        performed_update = all(entry_modified_dict.values())
-
-        if performed_update:
-            self.catalog_gdf.loc[_id, 'last_update'] = CatalogManager.get_current_timestamp()
-        
-        return performed_update
-    
-
-    def modify_files(self, _id:str, delete_files:list[str]=None, add_files:list[str]=None):
-        if pd.isna(self.catalog_gdf.loc[_id, 'files']):
-            raise KeyError(
-                f'id={_id} not present in the catalog. Can not perform delete_files.'
-            )
-    
-        if delete_files is None:
-            delete_files = set()
-        else:
-            delete_files = set(delete_files)
-
-        if add_files is None:
-            add_files = set()
-        else:
-            add_files = set(add_files)
-        
-        current_files = set(self.catalog_gdf.loc[_id, 'files'].split(','))
-        
-        conflicting_files = delete_files & add_files
-        absent_files_to_delete = delete_files - current_files
-        present_files_to_add = current_files & add_files
-
-        if len(conflicting_files) > 0:
-            raise ValueError(f'Conflicting requests. Following files being added and deleted: {list(conflicting_files)}')
-
-        if len(absent_files_to_delete) > 0:
-            raise ValueError(f'Non-existent files requested to be deleted: {list(absent_files_to_delete)}')
-        
-        if len(present_files_to_add) > 0:
-            raise ValueError(f'Pre-existent files requested to be added: {list(present_files_to_add)}')
-
-        updated_files = (current_files | add_files) - delete_files
-
-        if updated_files != current_files:
-            self.catalog_gdf.loc[_id, 'last_update'] = CatalogManager.get_current_timestamp()
-
-        self.catalog_gdf.loc[_id, 'files'] = ','.join(updated_files)
-        
-        return len(updated_files)
-
-    
-    def delete_entry(self, _id:str):
-        if _id not in self.catalog_gdf.index:
-            raise KeyError(f'id={_id} not present in the catalog. Can not perform delete_entry.')
-        self.catalog_gdf = self.catalog_gdf.drop(index=_id)
-    
-
-    def save(self):
-        self.catalog_gdf.to_file(self.catalog_filepath)
+COL_ID = cm.COL_ID
+COL_TIMESTAMP = 'timestamp'
+COL_LOCAL_FOLDERPATH = 'local_folderpath'
+COL_GEOMETRY = 'geometry'
+COL_LAST_UPDATE = cm.COL_LAST_UPDATE
+COL_FILES = 'files'
+COL_S3URL = 's3url'
+COL_CLOUDCOVER = 'cloud_cover'
+COL_GEOMETRY = 'geometry'
 
 
 def update_catalog(
@@ -189,8 +34,18 @@ def update_catalog(
     download_successes:list[bool],
     sentinel2_local_catalog_filepath:str,
 ):
-    catalog_manager = CatalogManager(
+    catalog_manager = cm.CatalogManager(
         catalog_filepath = sentinel2_local_catalog_filepath,
+        cols_dtype_dict = {
+                          COL_ID: cm.DTYPE_STR,
+                   COL_TIMESTAMP: cm.DTYPE_TIMESTAMP,
+                       COL_S3URL: cm.DTYPE_STR,
+            COL_LOCAL_FOLDERPATH: cm.DTYPE_STR,
+                       COL_FILES: cm.DTYPE_LIST_STR,
+                 COL_LAST_UPDATE: cm.DTYPE_TIMESTAMP,
+                  COL_CLOUDCOVER: cm.DTYPE_FLOAT,
+                    COL_GEOMETRY: cm.DTYPE_MULTIPOLYGON,
+        }
     )
 
     id_to_download_files = {}
@@ -222,22 +77,24 @@ def update_catalog(
         id_to_download_folderpath[_id] = os.path.abspath(os.path.split(download_filepath)[0])
 
     _ids = id_to_download_files.keys()
-    selected_catalog_gdf = catalog_gdf[catalog_gdf['id'].isin(_ids)]
+    selected_catalog_gdf = catalog_gdf[catalog_gdf[COL_ID].isin(_ids)]
 
-    id_to_timestamps = dict(zip(selected_catalog_gdf['id'], selected_catalog_gdf['timestamp']))
-    id_to_s3urls = dict(zip(selected_catalog_gdf['id'], selected_catalog_gdf['s3url']))
-    id_to_cloudcover = dict(zip(selected_catalog_gdf['id'], selected_catalog_gdf['cloud_cover']))
-    id_to_geometry = dict(zip(selected_catalog_gdf['id'], selected_catalog_gdf['geometry']))
+    id_to_timestamps = dict(zip(selected_catalog_gdf[COL_ID], selected_catalog_gdf[COL_TIMESTAMP]))
+    id_to_s3urls = dict(zip(selected_catalog_gdf[COL_ID], selected_catalog_gdf[COL_S3URL]))
+    id_to_cloudcover = dict(zip(selected_catalog_gdf[COL_ID], selected_catalog_gdf[COL_CLOUDCOVER]))
+    id_to_geometry = dict(zip(selected_catalog_gdf[COL_ID], selected_catalog_gdf[COL_GEOMETRY]))
 
     for _id in _ids:
         catalog_manager.add(
-            _id = _id,
-            timestamp = id_to_timestamps[_id],
-            s3url = id_to_s3urls[_id],
-            local_folderpath = id_to_download_folderpath[_id],
-            files = id_to_download_files[_id],
-            cloud_cover = id_to_cloudcover[_id],
-            geometry_epsg_4326 = id_to_geometry[_id],
+            entry = {
+                              COL_ID: _id,
+                       COL_TIMESTAMP: id_to_timestamps[_id],
+                           COL_S3URL: id_to_s3urls[_id],
+                COL_LOCAL_FOLDERPATH: id_to_download_folderpath[_id],
+                           COL_FILES: id_to_download_files[_id],
+                      COL_CLOUDCOVER: id_to_cloudcover[_id],
+                        COL_GEOMETRY: id_to_geometry[_id],
+            }
         )
     
     catalog_manager.save()
