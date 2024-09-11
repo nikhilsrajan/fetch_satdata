@@ -6,6 +6,7 @@ import pandas as pd
 import tqdm
 
 import create_datacube
+import exceptions
 
 
 def extract_s2l1c_mean_sun_angle(
@@ -59,13 +60,17 @@ def extract_s2l1c_mean_sun_angle(
         azimuth_angle_element = root.findall('.//Mean_Sun_Angle/AZIMUTH_ANGLE')[0]
         azimuth_angle_units = azimuth_angle_element.attrib['unit']
         if azimuth_angle_units != 'deg':
-            raise ValueError(f"azimuth_angle_units={azimuth_angle_units}, which is not 'deg' as it was expected.")
+            raise exceptions.MetadataException(
+                f"azimuth_angle_units={azimuth_angle_units}, which is not 'deg' as it was expected."
+            )
         azimuth_angle_value = float(azimuth_angle_element.text)
        
         zenith_angle_element = root.findall('.//Mean_Sun_Angle/ZENITH_ANGLE')[0]
         zenith_angle_units = zenith_angle_element.attrib['unit']
         if zenith_angle_units != 'deg':
-            raise ValueError(f"zenith_angle_units={zenith_angle_units}, which is not 'deg' as it was expected.")
+            raise exceptions.MetadataException(
+                f"zenith_angle_units={zenith_angle_units}, which is not 'deg' as it was expected."
+            )
         zenith_angle_value = float(zenith_angle_element.text)
         
         data['azimuth (deg)'].append(azimuth_angle_value)

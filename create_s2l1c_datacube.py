@@ -9,6 +9,7 @@ import configsmanager
 import create_datacube
 import extract_metadata
 import datacube_ops
+import exceptions
 
 
 """
@@ -87,7 +88,7 @@ def new_config_action(
 ):
     VALID_IF_NEW_CONFIG_OPTIONS = ['raise_error', 'warn', None]
     if not any([if_new_config is x for x in VALID_IF_NEW_CONFIG_OPTIONS]):
-        raise ValueError(
+        raise exceptions.DatacubeException(
             f'Invalid if_new_config={if_new_config}. '
             f'if_new_config must be from {VALID_IF_NEW_CONFIG_OPTIONS}'
         )
@@ -99,7 +100,7 @@ def new_config_action(
     if is_new_config:
         msg = f'New config received -- {config.to_dict()}'
         if if_new_config == 'raise_error':
-            raise ValueError(msg)
+            raise exceptions.DatacubeException(msg)
         elif if_new_config == 'warn':
             warnings.warn(message = msg, category = RuntimeWarning)
 
@@ -193,6 +194,19 @@ def check_if_geom_present_exact(
             break
     
     return same_geom_roi_name
+
+
+def check_if_roi_name_already_used(
+    roi_name:str,
+    datacube_catalog_filepath:str,
+):
+    """
+    Returns True if name already present else False.
+    """
+    dcm = load_datacube_catalog_manager(
+        datacube_catalog_filepath = datacube_catalog_filepath
+    )
+    return roi_name in set(dcm.catalog_gdf[COL_ROI_NAME].to_list())
 
 
 # Use this not in run_create_datacube but in the script to let people find which roi_names
@@ -301,7 +315,7 @@ def check_if_datacube_already_present(
         if os.path.exists(datacube_filepath) and os.path.exists(metadata_filepath):
             return True
         else:
-            raise ValueError(
+            raise exceptions.MajorException(
                 "This should have not happened. File mentioned in the catalog should "
                 "not be absent from the machine.\n"
                 f"{COL_ROI_NAME}: {roi_name}\n"
@@ -314,7 +328,7 @@ def check_if_datacube_already_present(
             )
 
     elif same_datacube_df.shape[0] > 1:
-        raise ValueError(
+        raise exceptions.MajorException(
             "This should have not happened. There is not shouldn't have been multiple entries "
             f"with same {COL_ROI_NAME}, {COL_STARTDATE}, {COL_ENDDATE}, and {COL_CONFIG_ID}.\n"
             f"{COL_ROI_NAME}: {roi_name}\n"
@@ -532,14 +546,23 @@ def create_s2l1c_datacube_and_update_catalog(
     )
     if same_shape_roi_name is not None:
         if same_shape_roi_name != roi_name:
-            raise ValueError(
+            raise exceptions.DatacubeException(
                 "The given geometry matches exactly with a previous entry "
                 f"under a different roi_name='{same_shape_roi_name}'. "
                 "Check with the other users of the create_s2l1c_datacube or "
                 f"consider using '{same_shape_roi_name}' as the roi_name instead "
                 f"of '{roi_name}'."
             )
-    
+    elif check_if_roi_name_already_used(
+        roi_name=roi_name, 
+        datacube_catalog_filepath=datacube_catalog_filepath,
+    ):
+        # same geom not present in the catalog but roi_name already used for another geom
+        raise exceptions.DatacubeException(
+            f"roi_name={roi_name} is already used for another geometry. "
+            "Please try a different roi_name."
+        )
+        
     if check_if_datacube_already_present(
         datacube_catalog_filepath = datacube_catalog_filepath,
         roi_name = roi_name,

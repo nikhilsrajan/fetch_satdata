@@ -4,6 +4,8 @@ import shapely
 import pandas as pd
 import datetime
 
+import exceptions
+
 
 DTYPE_STR = 'str'
 DTYPE_TIMESTAMP = 'timestamp'
@@ -59,12 +61,16 @@ class CatalogManager(object):
         if COL_ID not in cols_dtype_dict.keys():
             cols_dtype_dict[COL_ID] = DTYPE_STR
         elif cols_dtype_dict[COL_ID] != DTYPE_STR:
-            raise ValueError(f'dtype of {COL_ID} column must be {DTYPE_STR}')
+            raise exceptions.CatalogManagerException(
+                f'dtype of {COL_ID} column must be {DTYPE_STR}'
+            )
         
         if COL_LAST_UPDATE not in cols_dtype_dict.keys():
             cols_dtype_dict[COL_LAST_UPDATE] = DTYPE_TIMESTAMP
         elif cols_dtype_dict[COL_LAST_UPDATE] != DTYPE_TIMESTAMP:
-            raise ValueError(f'dtype of {COL_LAST_UPDATE} column must be {DTYPE_TIMESTAMP}')
+            raise exceptions.CatalogManagerException(
+                f'dtype of {COL_LAST_UPDATE} column must be {DTYPE_TIMESTAMP}'
+            )
         
         self.catalog_filepath = catalog_filepath
         self.cols_dtype_dict = cols_dtype_dict
@@ -72,7 +78,7 @@ class CatalogManager(object):
         folderpath = os.path.split(catalog_filepath)[0]
         os.makedirs(folderpath, exist_ok=True)
         if not os.access(folderpath, os.W_OK):
-            raise ValueError(
+            raise exceptions.CatalogManagerException(
                 f'User does not have the permission to write catalog '
                 f'in folderpath={folderpath}. Set a new catalog_filepath.'
             )
@@ -116,7 +122,7 @@ class CatalogManager(object):
             entry_modified_dict[col] = False
             if value is None:
                 if first_entry:
-                    raise ValueError(
+                    raise exceptions.CatalogManagerException(
                         f'First entry for col={col} can not be None for id={_id}'
                     )
                 else:
@@ -152,9 +158,11 @@ class CatalogManager(object):
     def modify_list_str_col(self, _id:str, col:str, delete_items:list[str]=None, add_items:list[str]=None):
         col_dtype = self.cols_dtype_dict[col]
         if col_dtype!= DTYPE_LIST_STR:
-            raise ValueError(f'col={col} is of dtype {col_dtype}. dtype must be {DTYPE_LIST_STR} to use modify_list_str_col function.')
+            raise exceptions.CatalogManagerException(
+                f'col={col} is of dtype {col_dtype}. dtype must be {DTYPE_LIST_STR} to use modify_list_str_col function.'
+            )
         if pd.isna(self.catalog_gdf.loc[_id, col]):
-            raise KeyError(
+            raise exceptions.CatalogManagerException(
                 f'id={_id} not present in the catalog. Can not perform modify_list_str_col.'
             )
     
@@ -175,13 +183,19 @@ class CatalogManager(object):
         present_items_to_add = current_items & add_items
 
         if len(conflicting_items) > 0:
-            raise ValueError(f'Conflicting requests. Following items being added and deleted: {list(conflicting_items)}')
+            raise exceptions.CatalogManagerException(
+                f'Conflicting requests. Following items being added and deleted: {list(conflicting_items)}'
+            )
 
         if len(absent_items_to_delete) > 0:
-            raise ValueError(f'Non-existent items requested to be deleted: {list(absent_items_to_delete)}')
+            raise exceptions.CatalogManagerException(
+                f'Non-existent items requested to be deleted: {list(absent_items_to_delete)}'
+            )
         
         if len(present_items_to_add) > 0:
-            raise ValueError(f'Pre-existent items requested to be added: {list(present_items_to_add)}')
+            raise exceptions.CatalogManagerException(
+                f'Pre-existent items requested to be added: {list(present_items_to_add)}'
+            )
 
         updated_items = (current_items | add_items) - delete_items
 
@@ -195,7 +209,9 @@ class CatalogManager(object):
     
     def delete_entry(self, _id:str):
         if _id not in self.catalog_gdf.index:
-            raise KeyError(f'id={_id} not present in the catalog. Can not perform delete_entry.')
+            raise exceptions.CatalogManagerException(
+                f'id={_id} not present in the catalog. Can not perform delete_entry.'
+            )
         self.catalog_gdf = self.catalog_gdf.drop(index=_id)
     
 

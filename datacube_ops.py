@@ -8,6 +8,7 @@ import numba
 import multiprocessing as mp
 
 import create_datacube
+import exceptions
 
 
 # https://stackoverflow.com/questions/77783414/using-s2cloudless-to-generate-cloud-mask-using-sentinel-2-l1c-raw-data
@@ -88,7 +89,9 @@ def run_s2cloudless(
 
     missing_bands = set(MODEL_BANDS) - set(metadata['bands'])
     if len(missing_bands) > 0:
-        raise ValueError(f'Bands required by s2cloudless missing: {list(missing_bands)}')
+        raise exceptions.DatacubeException(
+            f'Bands required by s2cloudless missing: {list(missing_bands)}'
+        )
 
     band_indices = {_band : _index for _index, _band in enumerate(metadata['bands'])}
     model_band_indexes = [band_indices[_model_band] for _model_band in MODEL_BANDS]
@@ -123,11 +126,11 @@ def get_mosaic_ts_index_ranges(
     enddate = create_datacube.dt2ts(enddate)
 
     if not is_list_sorted(timestamps):
-        raise ValueError('timestamps is not sorted.')
+        raise exceptions.DatacubeException('timestamps is not sorted.')
     if startdate > timestamps[0]:
-        raise ValueError('startdate must be before on on the first timestamp')
+        raise exceptions.DatacubeException('startdate must be before on on the first timestamp')
     if enddate < timestamps[-1]:
-        raise ValueError('enddate must be after or on the last timestamp')
+        raise exceptions.DatacubeException('enddate must be after or on the last timestamp')
 
     mosaic_buckets = []
 
@@ -224,7 +227,7 @@ def apply_cloud_mask(
     band_indices = {band:index for index,band in enumerate(metadata['bands'])}
 
     if 'CMK' not in band_indices.keys():
-        raise ValueError(f'CMK band not present in datacube')
+        raise exceptions.DatacubeException(f'CMK band not present in datacube')
     
     if bands_to_modify is None:
         bands_to_modify = list(band_indices.keys())

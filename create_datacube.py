@@ -15,6 +15,7 @@ import warnings
 
 import rsutils.modify_images
 import rsutils.utils
+import exceptions
 
 
 FILENAME_DATACUBE = 'datacube.npy'
@@ -320,7 +321,7 @@ def crop_and_reproject(
     )
 
     if band_filepaths_df.shape[0] == 0:
-        raise ValueError(
+        raise exceptions.DatacubeException(
             'get_intersecting_band_filepaths returned 0 results.'
         )
     
@@ -495,7 +496,7 @@ def resample_to_merge_master_inplace(
     print_messages:bool = True,
 ):
     if band_filepaths_df.shape[0] == 0:
-        raise ValueError('band_filepaths_df is empty.')
+        raise exceptions.DatacubeException('band_filepaths_df is empty.')
 
     band_filepaths_df['shape'] = band_filepaths_df['filepath'].apply(get_shape)
     
@@ -566,7 +567,7 @@ def missing_files_action(
 ):
     VALID_IF_MISSING_FILES_OPTIONS = ['raise_error', 'warn', None]
     if not any([if_missing_files is x for x in VALID_IF_MISSING_FILES_OPTIONS]):
-        raise ValueError(
+        raise exceptions.DatacubeException(
             f'Invalid if_missing_files={if_missing_files}. '
             f'if_missing_files must be from {VALID_IF_MISSING_FILES_OPTIONS}'
         )
@@ -582,10 +583,10 @@ def missing_files_action(
     )
     # If there are no files present raise error no matter.
     if missing_flags['all']:
-        raise ValueError('Missing files error\n' + msg)
+        raise exceptions.DatacubeException('Missing files error\n' + msg)
     if any(missing_flags.values()):
         if if_missing_files == 'raise_error':
-            raise ValueError('Missing files error\n' + msg)
+            raise exceptions.DatacubeException('Missing files error\n' + msg)
         elif if_missing_files == 'warn':
             warnings.warn(message = 'Missing files warning\n' + msg, 
                           category = RuntimeWarning)

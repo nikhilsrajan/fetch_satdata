@@ -1,40 +1,52 @@
-import os
+"""
+Child script for 'create_s2l1c_datacubes.py'. Since python doesn't allow multiprocessed
+operations to have multiprocessed child operations within it to avoid zombies (detached 
+processes), I intend to call this script from 'create_s2l1c_datacubes.py' through multi-
+threading. This script as such is never intended to be used by itself, but I ofcourse
+will for the purposes of testing (krkrkkk)
+
+--- nikhilsasirajan@gmail.com ---
+
+"""
+
+import argparse
 import geopandas as gpd
 import datetime
-import shutil
 import time
-import argparse
 
 import sys
 sys.path.append('..')
 
 import config
-import rsutils.s2_grid_utils
 import create_s2l1c_datacube
+import rsutils.s2_grid_utils
 
 
 def main(
+    roi_name:str,
     shapes_gdf:gpd.GeoDataFrame, 
     startdate:datetime.datetime, 
     enddate:datetime.datetime, 
     bands:list[str],
-    zip_filepath:str, 
     njobs:int, 
+    datacube_catalog_filepath:str,
     s2cloudless_chunksize:int = None,
     cloud_threshold:float = 1, 
     mosaic_days = None,
-    print_messages:bool = True,
-    if_missing_files = 'raise_error',
+    print_messages:bool = False,
+    if_missing_files:str = 'raise_error', # options: ['raise_error', 'warn', None]
+    overwrite:bool = False,
 ):
     if print_messages:
         print('--- run ---')
-
-    out_folderpath = zip_filepath.removesuffix('.zip')
-
-    create_s2l1c_datacube.create_s2l1c_datacube(
-        shapes_gdf = shapes_gdf,
-        export_folderpath = out_folderpath,
+    
+    create_s2l1c_datacube.create_s2l1c_datacube_and_update_catalog(
         satellite_catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
+        datacube_catalog_filepath = datacube_catalog_filepath,
+        configs_filepath = config.FILEPATH_S2L1C_DATACUBE_CONFIG_TRACKER, # this needs to be updated in create_s2l1c_datacubes.py
+        datacubes_folderpath = config.FOLDERPATH_DATACUBES_S2L1C,
+        roi_name = roi_name,
+        shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
         bands = bands,
@@ -44,36 +56,29 @@ def main(
         mosaic_days = mosaic_days,
         print_messages = print_messages,
         if_missing_files = if_missing_files,
+        if_new_config = 'raise_error', # by default left as raise_error as create_s2l1c_datacubes.py should have created them already.
+        overwrite = overwrite,
     )
-
-    if print_messages:
-        print('Zipping files...')
-    final_zip_filepath = shutil.make_archive(
-        out_folderpath,
-        'zip',
-        out_folderpath,
-    )
-
-    shutil.rmtree(out_folderpath)
-
-    if print_messages:
-        print(f'Outputs zipped and saved at: {os.path.abspath(final_zip_filepath)}')
 
 
 if __name__ == '__main__':
     start_time = time.time()
-    
+
     parser = argparse.ArgumentParser(
-        prog = 'python create_s2l1c_datacube_and_zip.py',
+        prog = 'python _create_s2l1c_datacube.py',
         description = (
+            'THIS SCRIPT IS NOT MEANT TO BE USED BY A USER. '
+            'THIS IS A CHILD SCRIPT FOR create_s2l1c_datacubes.py '
+            'PLEASE USE create_s2l1c_datacubes.py -- '
             'Script to create a datacube of S2L1C data for given shapefile '
             'or s2grid id, and daterange. The script also runs s2cloudless to '
             'compute cloud probability if requested, and performs median '
-            'mosaicing. The datacube is then saved into the specified folderpath '
-            'and zipped.'    
+            'mosaicing. The datacube is then saved into the datacubes folderpath '
+            'and the catalog is updated.'
         ),
         epilog = '--- Send your complaints to nsasiraj@umd.edu ---',
     )
+    parser.add_argument('roi-name', help='Name to uniquely identify the region of the interest. This is logged in the catalog and will throw error if same shape has been given a different name earlier or if the name is already used.')
     parser.add_argument('roi', help='filepath=path/to/shapefile | s2gridid=S2GridID')
     parser.add_argument('startdate', help='YYYY-MM-DD')
     parser.add_argument('enddate', help='YYYY-MM-DD')
@@ -86,6 +91,9 @@ if __name__ == '__main__':
     parser.add_argument('--silent', action='store_true', help='To run the script without any print statements.')
     parser.add_argument('--ignore-missing-files', action='store_true', help='If there are missing files for requested region and date range, this option ignores the error and proceeds, except when there are no files present.')
     parser.add_argument('--warn-missing-files', action='store_true', help='If there are missing files for requested region and date range, this option raises a warning and proceeds, except when there are no files present.')
+    parser.add_argument('--datacube-catalog', action='store', help='Datacube catalog filepath where the catalog is to be created. It is a variable in this script to avoid deadlocks/race-conditions when this script is parallelised by create_s2l1c_datacubes.py')
+    parser.add_argument('--overwrite', action='store_true', help='Overwrite existing datacube.')
+
     args = parser.parse_args()
 
     if args.roi.startswith('filepath='):
@@ -118,8 +126,6 @@ if __name__ == '__main__':
     else:
         bands = args.bands.upper().split(',')
 
-    zip_filepath = args.out.removesuffix('.zip') + '.zip'
-
     njobs = int(args.njobs)
     
     s2cloudless_chunksize = args.s2cloudless
@@ -146,13 +152,16 @@ if __name__ == '__main__':
     if args.warn_missing_files:
         if_missing_files = 'warn'
 
+    out_folderpath = args.out
+    overwrite = args.overwrite
+
     if print_messages:
         print('--- inputs ---')
         print(f'roi: {args.roi}')
         print(f'startdate: {args.startdate}')
         print(f'enddate: {args.enddate}')
         print(f'bands: {bands}')
-        print(f'out: {zip_filepath}')
+        print(f'out: {out_folderpath}')
         print(f'njobs: {njobs}')
         if s2cloudless_chunksize is not None:
             print(f's2cloudless_chunksize: {s2cloudless_chunksize}')
@@ -161,22 +170,11 @@ if __name__ == '__main__':
             print(f'mosaic_days: {mosaic_days}')
         if if_missing_files is not None:
             print(f'if_missing_files: {if_missing_files}')
-
-    main(
-        shapes_gdf = shapes_gdf,
-        startdate = startdate,
-        enddate = enddate,
-        bands = bands,
-        zip_filepath = zip_filepath,
-        njobs = njobs,
-        s2cloudless_chunksize = s2cloudless_chunksize,
-        cloud_threshold = cloud_threshold,
-        mosaic_days = mosaic_days,
-        print_messages = print_messages,
-        if_missing_files = if_missing_files,
-    )
-
+        if overwrite:
+            print('OVERWRITE: True')
+    
     end_time = time.time()
 
     if print_messages:
         print(f'--- t_elapsed: {round(end_time - start_time, 2)} secs ---')
+
