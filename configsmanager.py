@@ -68,7 +68,7 @@ class ConfigsManager:
 
     def save(self)->bool:
         with open(self.configs_filepath, 'w') as h:
-            h.write(json.dump(self.configs, h))
+            h.write(json.dump(self.configs), h)
         return os.path.exists(self.configs_filepath)
     
 
