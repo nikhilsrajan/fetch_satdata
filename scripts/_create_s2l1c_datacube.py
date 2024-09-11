@@ -17,6 +17,7 @@ import argparse
 import geopandas as gpd
 import datetime
 import time
+import json
 
 import sys
 sys.path.append('..')
@@ -24,6 +25,24 @@ sys.path.append('..')
 import config
 import create_s2l1c_datacube
 import rsutils.s2_grid_utils
+import exceptions
+
+
+RET_SUCCESS_NEW = 0
+RET_SUCCESS_OVERWRITE = 1
+RET_FAILED = 2
+
+
+def log(log_filepath:str, entry:dict):
+    entry['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    with open(log_filepath) as h:
+        _logs = json.load(h)
+    
+    _logs.append(entry)
+
+    with open(log_filepath, 'w') as h:
+        json.dump(_logs, h)
 
 
 def main(
@@ -41,30 +60,65 @@ def main(
     if_missing_files:str = 'raise_error', # options: ['raise_error', 'warn', None]
     if_new_config:str = 'raise_error', # by default left as raise_error as create_s2l1c_datacubes.py should have created them already.
     overwrite:bool = False,
+    log_filepath:str = None,
 ):
     if print_messages:
         print('--- run ---')
+
+    ret_code = RET_FAILED
     
-    create_s2l1c_datacube.create_s2l1c_datacube_and_update_catalog(
-        satellite_catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
-        datacube_catalog_filepath = datacube_catalog_filepath,
-        configs_filepath = config.FILEPATH_S2L1C_DATACUBE_CONFIG_TRACKER, # this needs to be updated in create_s2l1c_datacubes.py
-        datacubes_folderpath = config.FOLDERPATH_DATACUBES_S2L1C,
-        roi_name = roi_name,
-        shapes_gdf = shapes_gdf,
-        startdate = startdate,
-        enddate = enddate,
-        bands = bands,
-        njobs = njobs,
-        s2cloudless_chunksize = s2cloudless_chunksize,
-        cloud_threshold = cloud_threshold,
-        mosaic_days = mosaic_days,
-        print_messages = print_messages,
-        if_missing_files = if_missing_files,
-        if_new_config = if_new_config,
-        
-        overwrite = overwrite,
-    )
+    try:
+        ret = create_s2l1c_datacube.create_s2l1c_datacube_and_update_catalog(
+            satellite_catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
+            datacube_catalog_filepath = datacube_catalog_filepath,
+            configs_filepath = config.FILEPATH_S2L1C_DATACUBE_CONFIG_TRACKER, # this needs to be updated in create_s2l1c_datacubes.py
+            datacubes_folderpath = config.FOLDERPATH_DATACUBES_S2L1C,
+            roi_name = roi_name,
+            shapes_gdf = shapes_gdf,
+            startdate = startdate,
+            enddate = enddate,
+            bands = bands,
+            njobs = njobs,
+            s2cloudless_chunksize = s2cloudless_chunksize,
+            cloud_threshold = cloud_threshold,
+            mosaic_days = mosaic_days,
+            print_messages = print_messages,
+            if_missing_files = if_missing_files,
+            if_new_config = if_new_config,
+            overwrite = overwrite,
+        )
+        if ret == create_s2l1c_datacube.DATACUBE_CREATED:
+            ret_code = RET_SUCCESS_NEW
+            entry = {'status': 'success, new'}
+        elif ret == create_s2l1c_datacube.DATACUBE_ALREADY_EXISTS:
+            ret_code = RET_SUCCESS_OVERWRITE
+            entry = {'status': 'success, overwrite'}
+
+    except exceptions.CatalogManagerException as e:
+        error_type = 'CatalogManagerException'
+        error_message = str(e)
+        entry = {'status': 'failed',
+                 'error_type': error_type,
+                 'error_message': error_message}
+    
+    except exceptions.DatacubeException as e:
+        error_type = 'DatacubeException'
+        error_message = str(e)
+        entry = {'status': 'failed',
+                 'error_type': error_type,
+                 'error_message': error_message}
+
+    except exceptions.MetadataException as e:
+        error_type = 'MetadataException'
+        error_message = str(e)
+        entry = {'status': 'failed',
+                 'error_type': error_type,
+                 'error_message': error_message}
+
+    if log_filepath is not None:
+            log(log_filepath=log_filepath, entry = entry)
+    
+    return ret_code
 
 
 if __name__ == '__main__':
@@ -99,11 +153,13 @@ if __name__ == '__main__':
     parser.add_argument('--datacube-catalog', action='store', required=True, help='Datacube catalog filepath where the catalog is to be created. It is a variable in this script to avoid deadlocks/race-conditions when this script is parallelised by create_s2l1c_datacubes.py')
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing datacube.')
     parser.add_argument('--add-new-config', action='store_true', help='To allow addition of new config.')
+    parser.add_argument('--log-file', action='store', required=False, help='Log file where the status of the different runs would be appended to.')
 
     args = parser.parse_args()
 
     roi_name = args.roi_name
     datacube_catalog_filepath = args.datacube_catalog
+    log_filepath = args.log_file
 
     if args.roi.startswith('filepath='):
         roi_filepath = args.roi.removeprefix('filepath=')
@@ -189,8 +245,10 @@ if __name__ == '__main__':
             print(f'if_new_config: {if_new_config}')
         else:
             print(f'if_new_config: add')
+        if log_filepath is not None:
+            print(f'log-file: {log_filepath}')
 
-    main(
+    ret_code = main(
         roi_name = roi_name,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
@@ -205,10 +263,13 @@ if __name__ == '__main__':
         if_missing_files = if_missing_files,
         overwrite = overwrite,
         if_new_config = if_new_config,
+        log_filepath = log_filepath,
     )
     
     end_time = time.time()
 
     if print_messages:
         print(f'--- t_elapsed: {round(end_time - start_time, 2)} secs ---')
+
+    exit(ret_code)
 
