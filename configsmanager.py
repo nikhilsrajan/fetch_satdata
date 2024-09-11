@@ -67,6 +67,8 @@ class ConfigsManager:
     
 
     def save(self)->bool:
+        folderpath = os.path.split(self.configs_filepath)[0]
+        os.makedirs(folderpath, exist_ok=True)
         with open(self.configs_filepath, 'w') as h:
             json.dump(self.configs, h)
         return os.path.exists(self.configs_filepath)
