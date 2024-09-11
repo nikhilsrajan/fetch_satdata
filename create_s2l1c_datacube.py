@@ -94,8 +94,8 @@ def new_config_action(
         )
 
     configs_manager = configsmanager.ConfigsManager(configs_filepath=configs_filepath)
-    is_new_config = configs_manager.get_config_id(config = config.to_dict()) \
-        == configsmanager.ConfigsManager.NULL_ID
+    config_id = configs_manager.get_config_id(config = config.to_dict())
+    is_new_config =  config_id == configsmanager.ConfigsManager.NULL_ID
     
     if is_new_config:
         msg = f'New config received -- {config.to_dict()}'
