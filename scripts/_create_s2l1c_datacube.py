@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print(args)
+    roi_name = args['roi-name']
 
     if args.roi.startswith('filepath='):
         roi_filepath = args.roi.removeprefix('filepath=')
@@ -157,7 +157,7 @@ if __name__ == '__main__':
 
     if print_messages:
         print('--- inputs ---')
-        print(f'roi-name: {args.roi_name}')
+        print(f'roi-name: {roi_name}')
         print(f'roi: {args.roi}')
         print(f'startdate: {args.startdate}')
         print(f'enddate: {args.enddate}')
@@ -174,7 +174,7 @@ if __name__ == '__main__':
             print('OVERWRITE: True')
 
     main(
-        roi_name = args.roi_name,
+        roi_name = roi_name,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
