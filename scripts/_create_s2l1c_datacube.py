@@ -72,7 +72,7 @@ def main(
     ret_code = RET_FAILED
 
     entry = {
-        'identifier': {
+        'parameters': {
             'roi_name': roi_name,
             'startdate': startdate.strftime('%Y-%m-%d'),
             'enddate': enddate.strftime('%Y-%m-%d'),
