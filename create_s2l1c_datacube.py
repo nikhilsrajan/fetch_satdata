@@ -48,6 +48,7 @@ REF_BAND_ORDER = [
 
 DATACUBE_ALREADY_EXISTS = 'return::datacube-already-exists'
 DATACUBE_CREATED = 'return::datacube-created'
+DATACUBE_OVERWRITTEN  = 'return::datacube-overwritten'
 
 
 class Configuration(object):
@@ -572,6 +573,8 @@ def create_s2l1c_datacube_and_update_catalog(
             f"roi_name={roi_name} is already used for another geometry. "
             "Please try a different roi_name."
         )
+    
+    will_be_overwritten = False
         
     if check_if_datacube_already_present(
         datacube_catalog_filepath = datacube_catalog_filepath,
@@ -579,13 +582,17 @@ def create_s2l1c_datacube_and_update_catalog(
         actual_startdate = actual_startdate,
         actual_enddate = actual_enddate,
         config_id = config_id,
-    ) and not overwrite:
-        if print_messages:
-            print(
-                f'Datacube already exists -- roi_name={roi_name}, actual_startdate={actual_startdate} '
-                f'actual_enddate={actual_enddate}, config_id={config_id}'
-            )
-        return DATACUBE_ALREADY_EXISTS
+    ):
+        if not overwrite:
+            if print_messages:
+                print(
+                    f'Datacube already exists -- roi_name={roi_name}, actual_startdate={actual_startdate} '
+                    f'actual_enddate={actual_enddate}, config_id={config_id}'
+                )
+            return DATACUBE_ALREADY_EXISTS
+        else:
+            will_be_overwritten = True
+    
     
     datacube_folderpath = get_datacube_folderpath(
         root_folderpath = datacubes_folderpath,
@@ -632,5 +639,8 @@ def create_s2l1c_datacube_and_update_catalog(
             f'Datacube created -- roi_name={roi_name}, actual_startdate={actual_startdate} '
             f'actual_enddate={actual_enddate}, config_id={config_id}'
         )
+    
+    if will_be_overwritten:
+        return DATACUBE_OVERWRITTEN
     
     return DATACUBE_CREATED

@@ -93,10 +93,13 @@ def main(
         )
         if ret == create_s2l1c_datacube.DATACUBE_CREATED:
             ret_code = RET_SUCCESS_NEW
-            entry = {'status': 'success, new'}
+            entry = {'status': 'success', 'type':'new'}
         elif ret == create_s2l1c_datacube.DATACUBE_ALREADY_EXISTS:
-            ret_code = RET_SUCCESS_OVERWRITE
-            entry = {'status': 'success, overwrite'}
+            ret_code = RET_SUCCESS_NEW
+            entry = {'status': 'success', 'type':'already exists'}
+        elif ret == create_s2l1c_datacube.DATACUBE_OVERWRITTEN:
+            ret_code = RET_SUCCESS_NEW
+            entry = {'status': 'success', 'type':'overwritten'}
 
     except exceptions.CatalogManagerException as e:
         error_type = 'CatalogManagerException'
