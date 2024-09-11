@@ -2,7 +2,6 @@ import os
 import geopandas as gpd
 import datetime
 import shutil
-import numpy as np
 import time
 import argparse
 
@@ -10,38 +9,8 @@ import sys
 sys.path.append('..')
 
 import config
-import create_datacube
-import extract_metadata
-import datacube_ops
 import rsutils.s2_grid_utils
-
-
-def run_datacube_ops(
-    folderpath:str,
-    sequence:list,
-    print_messages:bool = True,
-):
-    bands, metadata = create_datacube.load_datacube(
-        folderpath = folderpath
-    )
-    bands, metadata = datacube_ops.run_datacube_ops(
-        bands = bands,
-        metadata = metadata,
-        sequence = sequence,
-        print_messages = print_messages,
-    )
-    create_datacube.save_datacube(
-        bands = bands,
-        metadata = metadata,
-        folderpath = folderpath,
-    )
-
-
-REF_BAND_ORDER = [
-    'B08', 'B04', 'B03', 'B02', # 10m
-    'B8A', 'B11', 'B12', 'B05', 'B06', 'B07', # 20m
-    'B01', 'B09', 'B10', # 60m
-]
+import create_s2l1c_datacube
 
 
 def main(
@@ -51,79 +20,32 @@ def main(
     bands:list[str],
     zip_filepath:str, 
     njobs:int, 
-    resampling_ref_band:str,
     s2cloudless_chunksize:int = None,
     cloud_threshold:float = 1, 
     mosaic_days = None,
     print_messages:bool = True,
-    if_missing_files:bool = 'raise_error',
+    if_missing_files = 'raise_error',
 ):
     start_time = time.time()
-
-    NODATA = 0 # since the script is hardcoded for sentinel-2-l1c
-    EXT = '.jp2' # since the script is hardcoded for sentinel-2-l1c
 
     if print_messages:
         print('--- run ---')
 
     out_folderpath = zip_filepath.removesuffix('.zip')
 
-    create_datacube.create_datadube(
+    create_s2l1c_datacube.create_s2l1c_datacube(
         shapes_gdf = shapes_gdf,
-        catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
+        export_folderpath = out_folderpath,
+        satellite_catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
         startdate = startdate,
         enddate = enddate,
         bands = bands,
-        out_folderpath = out_folderpath,
-        working_dir = out_folderpath,
-        nodata = NODATA,
         njobs = njobs,
-        resampling_ref_band = resampling_ref_band,
-        delete_working_dir = True,
-        satellite_folderpath = None,
+        s2cloudless_chunksize = s2cloudless_chunksize,
+        cloud_threshold = cloud_threshold,
+        mosaic_days = mosaic_days,
         print_messages = print_messages,
-        ext = EXT,
         if_missing_files = if_missing_files,
-    )
-
-    if print_messages:
-        print('Extracting mean_sun_angle:')
-    mean_sun_angle_df = \
-    extract_metadata.extract_s2l1c_mean_sun_angle(
-        shapes_gdf = shapes_gdf,
-        catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
-        startdate = startdate,
-        enddate = enddate,
-        print_messages = print_messages,
-    )
-    mean_sun_angle_df.to_csv(os.path.join(out_folderpath, 'mean_sun_angle.csv'), index=False)
-
-    datacube_ops_sequence = []
-
-    if s2cloudless_chunksize is not None:
-        datacube_ops_sequence.append((
-            datacube_ops.run_s2cloudless, dict(chunksize = s2cloudless_chunksize, 
-                                               njobs = njobs, 
-                                               print_messages = print_messages)
-        ))
-    
-    if cloud_threshold is not None and mosaic_days is not None:
-        datacube_ops_sequence.append((
-            datacube_ops.apply_cloud_mask, dict(cloud_threshold = cloud_threshold * 10000)
-        ))
-        datacube_ops_sequence.append((
-            datacube_ops.drop_bands, dict(bands_to_drop = ['CMK'])
-        ))
-        datacube_ops_sequence.append((
-            datacube_ops.median_mosaic, dict(startdate = startdate,
-                                             enddate = enddate,
-                                             mosaic_days = mosaic_days,)
-        ))
-
-    run_datacube_ops(
-        folderpath = out_folderpath,
-        sequence = datacube_ops_sequence,
-        print_messages = print_messages,
     )
 
     if print_messages:
@@ -229,11 +151,6 @@ if __name__ == '__main__':
     if args.warn_missing_files:
         if_missing_files = 'warn'
 
-    for ref_band_candidate in REF_BAND_ORDER:
-        if ref_band_candidate in bands:
-            resampling_ref_band = ref_band_candidate
-            break
-
     if print_messages:
         print('--- inputs ---')
         print(f'roi: {args.roi}')
@@ -249,7 +166,6 @@ if __name__ == '__main__':
             print(f'mosaic_days: {mosaic_days}')
         if if_missing_files is not None:
             print(f'if_missing_files: {if_missing_files}')
-        print(f'resampling_ref_band: {resampling_ref_band}')
 
     main(
         shapes_gdf = shapes_gdf,
@@ -263,5 +179,4 @@ if __name__ == '__main__':
         mosaic_days = mosaic_days,
         print_messages = print_messages,
         if_missing_files = if_missing_files,
-        resampling_ref_band = resampling_ref_band,
     )

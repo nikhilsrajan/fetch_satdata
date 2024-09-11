@@ -7,6 +7,8 @@ import pandas as pd
 import numba
 import multiprocessing as mp
 
+import create_datacube
+
 
 # https://stackoverflow.com/questions/77783414/using-s2cloudless-to-generate-cloud-mask-using-sentinel-2-l1c-raw-data
 # https://forum.step.esa.int/t/info-introduction-of-additional-radiometric-offset-in-pb04-00-products/35431
@@ -106,13 +108,6 @@ def run_s2cloudless(
     return bands, _metadata
 
 
-def _dt2ts(
-    dt:datetime.datetime, 
-    tz='UTC',
-):
-    return pd.Timestamp(dt, tz=tz)
-
-
 def is_list_sorted(l:list):
     # https://stackoverflow.com/questions/3755136/pythonic-way-to-check-if-a-list-is-sorted-or-not
     return all(l[i] <= l[i+1] for i in range(len(l) - 1))
@@ -124,8 +119,8 @@ def get_mosaic_ts_index_ranges(
     enddate:datetime.datetime,
     mosaic_days:int = 20,
 ):
-    startdate = _dt2ts(startdate)
-    enddate = _dt2ts(enddate)
+    startdate = create_datacube.dt2ts(startdate)
+    enddate = create_datacube.dt2ts(enddate)
 
     if not is_list_sorted(timestamps):
         raise ValueError('timestamps is not sorted.')

@@ -17,6 +17,27 @@ import rsutils.modify_images
 import rsutils.utils
 
 
+def dt2ts(
+    dt:datetime.datetime, 
+    tz='UTC',
+):
+    return pd.Timestamp(dt, tz=tz)
+
+
+def get_unary_gdf(
+    shapes_gdf:gpd.GeoDataFrame,
+    crs,
+):
+    union_shape = shapely.ops.unary_union(
+        shapes_gdf.to_crs(crs)['geometry']
+    )
+    union_shape_gdf = gpd.GeoDataFrame(
+        data = {'geometry': [union_shape]},
+        crs = crs,
+    )
+    return union_shape_gdf
+
+
 def filter_catalog(
     catalog_filepath:str,
     shapes_gdf:gpd.GeoDataFrame,
@@ -30,17 +51,12 @@ def filter_catalog(
     """
     catalog_gdf = gpd.read_file(catalog_filepath)
 
-    union_shape = shapely.ops.unary_union(
-        shapes_gdf.to_crs(catalog_gdf.crs)['geometry']
-    )
-    union_shape_gdf = gpd.GeoDataFrame(
-        data = {'geometry': [union_shape]},
-        crs = catalog_gdf.crs,
-    )
+    union_shape_gdf = get_unary_gdf(shapes_gdf=shapes_gdf, crs=catalog_gdf.crs)
+    union_shape = union_shape_gdf['geometry'][0]
 
     dt_filtered_catalog_gdf = catalog_gdf[
-        (catalog_gdf['timestamp'] >= pd.Timestamp(startdate, tz='UTC'))
-        & (catalog_gdf['timestamp'] <= pd.Timestamp(enddate, tz='UTC'))
+        (catalog_gdf['timestamp'] >= dt2ts(startdate))
+        & (catalog_gdf['timestamp'] <= dt2ts(enddate))
     ].reset_index(drop=True)
 
     filtered_catalog_gdf = \
@@ -114,7 +130,7 @@ def check_if_there_are_files_missing(
     startdate:datetime.datetime,
     enddate:datetime.datetime,
     files:list[str],
-    max_timedelta:int = 5,
+    max_timedelta_days:int = 5,
 ):
     stats = query_catalog_stats(
         catalog_filepath = catalog_filepath,
@@ -143,7 +159,7 @@ def check_if_there_are_files_missing(
 
         td_msg = None
         for td in stats['timedelta_days'].keys():
-            if td > max_timedelta:
+            if td > max_timedelta_days:
                 if td_msg is None:
                     td_msg = 'Unusual time gaps found (days):'
                 td_msg += f' {td},'
@@ -152,12 +168,12 @@ def check_if_there_are_files_missing(
             td_msg = td_msg[:-1] # removing the last comma
             msgs.append(td_msg)
 
-        first_image_gap_days = (stats['timestamp_range'][0] - pd.Timestamp(startdate, tz='UTC')).days
-        last_image_gap_days = (pd.Timestamp(enddate, tz='UTC') - stats['timestamp_range'][1]).days
-        if first_image_gap_days > max_timedelta:
+        first_image_gap_days = (stats['timestamp_range'][0] - dt2ts(startdate)).days
+        last_image_gap_days = (dt2ts(enddate) - stats['timestamp_range'][1]).days
+        if first_image_gap_days > max_timedelta_days:
             missing_flags['time'] = True
             msgs.append(f'First available image is {first_image_gap_days} days from startdate')
-        if last_image_gap_days > max_timedelta:
+        if last_image_gap_days > max_timedelta_days:
             missing_flags['time'] = True
             msgs.append(f'Last available image is {last_image_gap_days} days from enddate')
         
@@ -534,6 +550,45 @@ def load_datacube(folderpath:str)->tuple[np.ndarray, dict]:
     return bands, metadata
 
 
+def missing_files_action(
+    catalog_filepath:str,
+    shapes_gdf:gpd.GeoDataFrame,
+    startdate:datetime.datetime,
+    enddate:datetime.datetime,
+    bands:list[str],
+    if_missing_files = 'raise_error',
+    ext:str = '.jp2',
+    max_timedelta_days:int = 5,
+):
+    VALID_IF_MISSING_FILES_OPTIONS = ['raise_error', 'warn', None]
+    if not any([if_missing_files is x for x in VALID_IF_MISSING_FILES_OPTIONS]):
+        raise ValueError(
+            f'Invalid if_missing_files={if_missing_files}. '
+            f'if_missing_files must be from {VALID_IF_MISSING_FILES_OPTIONS}'
+        )
+
+    query_stats, missing_flags, msg = \
+    check_if_there_are_files_missing(
+        catalog_filepath = catalog_filepath,
+        shapes_gdf = shapes_gdf,
+        startdate = startdate,
+        enddate = enddate,
+        files = [f'{band}{ext}' for band in bands],
+        max_timedelta_days = max_timedelta_days,
+    )
+    # If there are no files present raise error no matter.
+    if missing_flags['all']:
+        raise ValueError('Missing files error\n' + msg)
+    if any(missing_flags.values()):
+        if if_missing_files == 'raise_error':
+            raise ValueError('Missing files error\n' + msg)
+        elif if_missing_files == 'warn':
+            warnings.warn(message = 'Missing files warning\n' + msg, 
+                          category = RuntimeWarning)
+    
+    return query_stats, missing_flags
+
+
 def create_datadube(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
@@ -551,32 +606,19 @@ def create_datadube(
     delete_working_dir:bool = True,
     satellite_folderpath:str = None, # for maintaining the same folder structure
     print_messages:bool = True,
-    if_missing_files:bool = 'raise_error', # options: ['raise_error', 'warn', None]
+    if_missing_files:str = 'raise_error', # options: ['raise_error', 'warn', None]
+    max_timedelta_days:int = 5,
 ):  
-    VALID_IF_MISSING_FILES_OPTIONS = ['raise_error', 'warn', None]
-    if not any([if_missing_files is x for x in VALID_IF_MISSING_FILES_OPTIONS]):
-        raise ValueError(
-            f'Invalid if_missing_files={if_missing_files}. '
-            f'if_missing_files must be from {VALID_IF_MISSING_FILES_OPTIONS}'
-        )
-
-    query_stats, missing_flags, msg = \
-    check_if_there_are_files_missing(
+    missing_files_action(
         catalog_filepath = catalog_filepath,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
-        files = [f'{band}{ext}' for band in bands],
+        bands = bands,
+        if_missing_files = if_missing_files,
+        ext = ext,
+        max_timedelta_days = max_timedelta_days,
     )
-    # If there are no files present raise error no matter.
-    if missing_flags['all']:
-        raise ValueError('Missing files error\n' + msg)
-    if any(missing_flags.values()):
-        if if_missing_files == 'raise_error':
-            raise ValueError('Missing files error\n' + msg)
-        elif if_missing_files == 'warn':
-            warnings.warn(message = 'Missing files warning\n' + msg, 
-                          category = RuntimeWarning)
 
     if print_messages:
         print('Cropping tiles and reprojecting to common CRS:')
@@ -677,3 +719,4 @@ def create_datadube(
         metadata = metadata,
         folderpath = out_folderpath,
     )
+

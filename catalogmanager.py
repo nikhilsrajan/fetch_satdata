@@ -12,10 +12,10 @@ DTYPE_INT = 'int'
 DTYPE_MULTIPOLYGON = 'multipolygon'
 DTYPE_LIST_STR = 'list[str]'
 
-
 COL_ID = 'id'
 COL_LAST_UPDATE = 'last_update'
 
+EPSG_4326 = 'epsg:4326'
 
 DTYPE_PLACEHOLDER = {
     DTYPE_STR: 'blah',
@@ -35,9 +35,26 @@ DTYPE_PLACEHOLDER = {
 }
 
 
-class CatalogManager(object):
-    EPSG_4326 = 'epsg:4326'
+def dt2ts(
+    dt:datetime.datetime, 
+    tz='UTC',
+):
+    return pd.Timestamp(dt, tz=tz)
 
+
+def merge_multiple_catalogs(
+    filepaths:list[str],
+    out_filepath:str,
+):
+    catalog_gdfs = [gpd.read_file(filepath) for filepath in filepaths]
+    merged_catalog_gdf = gpd.GeoDataFrame(
+        pd.concat(catalog_gdfs).set_index(COL_ID), 
+        crs = EPSG_4326,
+    )
+    merged_catalog_gdf.to_file(out_filepath)
+
+
+class CatalogManager(object):
     def __init__(self, catalog_filepath:str, cols_dtype_dict:dict):
         if COL_ID not in cols_dtype_dict.keys():
             cols_dtype_dict[COL_ID] = DTYPE_STR
@@ -72,7 +89,7 @@ class CatalogManager(object):
                     col: [DTYPE_PLACEHOLDER[dtype]]
                     for col, dtype in self.cols_dtype_dict.items()
                 },
-                crs = CatalogManager.EPSG_4326
+                crs = EPSG_4326
             ).set_index(COL_ID).drop(index=DTYPE_PLACEHOLDER[DTYPE_STR])
 
     
