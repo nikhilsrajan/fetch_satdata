@@ -17,6 +17,10 @@ import rsutils.modify_images
 import rsutils.utils
 
 
+FILENAME_DATACUBE = 'datacube.npy'
+FILENAME_METADATA = 'metadata.pickle.npy'
+
+
 def dt2ts(
     dt:datetime.datetime, 
     tz='UTC',
@@ -530,24 +534,24 @@ def resample_to_merge_master_inplace(
 
 
 def save_datacube(
-    bands:np.ndarray,
+    datacube:np.ndarray,
     metadata:dict,
     folderpath:str,
 ):
     os.makedirs(folderpath, exist_ok=True)
-    bandstack_filepath = os.path.join(folderpath, 'bands.npy')
-    metadata_filepath = os.path.join(folderpath, 'metadata.pickle.npy')
-    np.save(bandstack_filepath, bands)
+    datacube_filepath = os.path.join(folderpath, FILENAME_DATACUBE)
+    metadata_filepath = os.path.join(folderpath, FILENAME_METADATA)
+    np.save(datacube_filepath, datacube)
     np.save(metadata_filepath, metadata, allow_pickle=True)
-    return bandstack_filepath, metadata_filepath
+    return datacube_filepath, metadata_filepath
 
 
 def load_datacube(folderpath:str)->tuple[np.ndarray, dict]:
-    bandstack_filepath = os.path.join(folderpath, 'bands.npy')
-    metadata_filepath = os.path.join(folderpath, 'metadata.pickle.npy')
-    bands = np.load(bandstack_filepath)
+    datacube_filepath = os.path.join(folderpath, FILENAME_DATACUBE)
+    metadata_filepath = os.path.join(folderpath, FILENAME_METADATA)
+    datacube = np.load(datacube_filepath)
     metadata = np.load(metadata_filepath, allow_pickle=True)[()]
-    return bands, metadata
+    return datacube, metadata
 
 
 def missing_files_action(
@@ -589,7 +593,7 @@ def missing_files_action(
     return query_stats, missing_flags
 
 
-def create_datadube(
+def create_datacube(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
     startdate:datetime.datetime,
@@ -682,7 +686,7 @@ def create_datadube(
         band_filepaths_df['id'],
     ))
 
-    stack = []
+    datacube = []
     meta = None
     ids = []
     for timestamp in timestamps:
@@ -694,10 +698,10 @@ def create_datadube(
                     meta = src.meta.copy()
                 band_stack.append(src.read())
         band_stack = np.stack(band_stack, axis=-1)
-        stack.append(band_stack)
+        datacube.append(band_stack)
         del band_stack
         ids.append(timestamp_to_id_dict[timestamp])
-    stack = np.concatenate(stack, axis=0)
+    datacube = np.concatenate(datacube, axis=0)
 
     meta['nodata'] = nodata
     meta['driver'] = 'GTiff'
@@ -715,7 +719,7 @@ def create_datadube(
         shutil.rmtree(working_dir)
 
     return save_datacube(
-        bands = stack,
+        datacube = datacube,
         metadata = metadata,
         folderpath = out_folderpath,
     )

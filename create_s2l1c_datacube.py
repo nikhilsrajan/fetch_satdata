@@ -44,6 +44,9 @@ REF_BAND_ORDER = [
     'B01', 'B09', 'B10', # 60m
 ]
 
+DATACUBE_ALREADY_EXISTS = 'return::datacube-already-exists'
+DATACUBE_CREATED = 'return::datacube-created'
+
 
 class Configuration(object):
     CLOUD_THRESHOLD = 'cloud_threshold'
@@ -329,17 +332,17 @@ def run_datacube_ops(
     sequence:list,
     print_messages:bool = True,
 ):
-    bands, metadata = create_datacube.load_datacube(
+    datacube, metadata = create_datacube.load_datacube(
         folderpath = folderpath
     )
-    bands, metadata = datacube_ops.run_datacube_ops(
-        bands = bands,
+    datacube, metadata = datacube_ops.run_datacube_ops(
+        datacube = datacube,
         metadata = metadata,
         sequence = sequence,
         print_messages = print_messages,
     )
     create_datacube.save_datacube(
-        bands = bands,
+        datacube = datacube,
         metadata = metadata,
         folderpath = folderpath,
     )
@@ -370,7 +373,7 @@ def create_s2l1c_datacube(
 
     working_dir = os.path.join(export_folderpath, 'temp')
 
-    create_datacube.create_datadube(
+    create_datacube.create_datacube(
         shapes_gdf = shapes_gdf,
         catalog_filepath = satellite_catalog_filepath,
         startdate = startdate,
@@ -549,7 +552,7 @@ def create_s2l1c_datacube_and_update_catalog(
                 f'Datacube already exists -- roi_name={roi_name}, actual_startdate={actual_startdate} '
                 f'actual_enddate={actual_enddate}, config_id={config_id}'
             )
-        return
+        return DATACUBE_ALREADY_EXISTS
     
     datacube_folderpath = get_datacube_folderpath(
         root_folderpath = datacubes_folderpath,
@@ -593,3 +596,5 @@ def create_s2l1c_datacube_and_update_catalog(
             f'Datacube created -- roi_name={roi_name}, actual_startdate={actual_startdate} '
             f'actual_enddate={actual_enddate}, config_id={config_id}'
         )
+    
+    return DATACUBE_CREATED

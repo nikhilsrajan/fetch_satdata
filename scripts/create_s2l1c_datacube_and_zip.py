@@ -69,7 +69,7 @@ def main(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        prog = 'python create_stack_and_zip_s2l1c.py',
+        prog = 'python create_s2l1c_datacube_and_zip.py',
         description = (
             'Script to create a datacube of S2L1C data for given shapefile '
             'or s2grid id, and daterange. The script also runs s2cloudless to '
