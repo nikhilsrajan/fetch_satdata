@@ -35,6 +35,7 @@ def main(
     mosaic_days = None,
     print_messages:bool = False,
     if_missing_files:str = 'raise_error', # options: ['raise_error', 'warn', None]
+    if_new_config:str = 'raise_error', # by default left as raise_error as create_s2l1c_datacubes.py should have created them already.
     overwrite:bool = False,
 ):
     if print_messages:
@@ -56,7 +57,8 @@ def main(
         mosaic_days = mosaic_days,
         print_messages = print_messages,
         if_missing_files = if_missing_files,
-        if_new_config = 'raise_error', # by default left as raise_error as create_s2l1c_datacubes.py should have created them already.
+        if_new_config = if_new_config,
+        
         overwrite = overwrite,
     )
 
@@ -90,8 +92,9 @@ if __name__ == '__main__':
     parser.add_argument('--silent', action='store_true', help='To run the script without any print statements.')
     parser.add_argument('--ignore-missing-files', action='store_true', help='If there are missing files for requested region and date range, this option ignores the error and proceeds, except when there are no files present.')
     parser.add_argument('--warn-missing-files', action='store_true', help='If there are missing files for requested region and date range, this option raises a warning and proceeds, except when there are no files present.')
-    parser.add_argument('--datacube-catalog', action='store', help='Datacube catalog filepath where the catalog is to be created. It is a variable in this script to avoid deadlocks/race-conditions when this script is parallelised by create_s2l1c_datacubes.py')
+    parser.add_argument('--datacube-catalog', action='store', required=True, help='Datacube catalog filepath where the catalog is to be created. It is a variable in this script to avoid deadlocks/race-conditions when this script is parallelised by create_s2l1c_datacubes.py')
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing datacube.')
+    parser.add_argument('--add-new-config', action='store_true', help='To allow addition of new config.')
 
     args = parser.parse_args()
 
@@ -156,6 +159,10 @@ if __name__ == '__main__':
 
     overwrite = args.overwrite
 
+    if_new_config = 'raise_error'
+    if args.add_new_config:
+        if_new_config = None
+
     if print_messages:
         print('--- inputs ---')
         print(f'datacube_catalog_filepath: {datacube_catalog_filepath}')
@@ -174,6 +181,10 @@ if __name__ == '__main__':
             print(f'if_missing_files: {if_missing_files}')
         if overwrite:
             print('OVERWRITE: True')
+        if if_new_config is not None:
+            print(f'if_new_config: {if_new_config}')
+        else:
+            print(f'if_new_config: add')
 
     main(
         roi_name = roi_name,
@@ -189,6 +200,7 @@ if __name__ == '__main__':
         print_messages = print_messages,
         if_missing_files = if_missing_files,
         overwrite = overwrite,
+        if_new_config = if_new_config,
     )
     
     end_time = time.time()
