@@ -70,6 +70,18 @@ def main(
         print('--- run ---')
 
     ret_code = RET_FAILED
+
+    entry = {
+        'identifier': {
+            'roi_name': roi_name,
+            'startdate': startdate.strftime('%Y-%m-%d'),
+            'enddate': enddate.strftime('%Y-%m-%d'),
+            'bands': bands,
+            's2cloudless_chunksize': s2cloudless_chunksize,
+            'cloud_threshold': cloud_threshold,
+            'mosaic_days': mosaic_days,
+        }
+    }
     
     try:
         ret = create_s2l1c_datacube.create_s2l1c_datacube_and_update_catalog(
@@ -93,34 +105,34 @@ def main(
         )
         if ret == create_s2l1c_datacube.DATACUBE_CREATED:
             ret_code = RET_SUCCESS_NEW
-            entry = {'status': 'success', 'type':'new'}
+            entry.update({'status': 'success', 'type':'new'})
         elif ret == create_s2l1c_datacube.DATACUBE_ALREADY_EXISTS:
             ret_code = RET_SUCCESS_NEW
-            entry = {'status': 'success', 'type':'already exists'}
+            entry.update({'status': 'success', 'type':'already exists'})
         elif ret == create_s2l1c_datacube.DATACUBE_OVERWRITTEN:
             ret_code = RET_SUCCESS_NEW
-            entry = {'status': 'success', 'type':'overwritten'}
+            entry.update({'status': 'success', 'type':'overwritten'})
 
     except exceptions.CatalogManagerException as e:
         error_type = 'CatalogManagerException'
         error_message = str(e)
-        entry = {'status': 'failed',
-                 'error_type': error_type,
-                 'error_message': error_message}
+        entry.update({'status': 'failed',
+                      'error_type': error_type,
+                      'error_message': error_message})
     
     except exceptions.DatacubeException as e:
         error_type = 'DatacubeException'
         error_message = str(e)
-        entry = {'status': 'failed',
-                 'error_type': error_type,
-                 'error_message': error_message}
+        entry.update({'status': 'failed',
+                      'error_type': error_type,
+                      'error_message': error_message})
 
     except exceptions.MetadataException as e:
         error_type = 'MetadataException'
         error_message = str(e)
-        entry = {'status': 'failed',
-                 'error_type': error_type,
-                 'error_message': error_message}
+        entry.update({'status': 'failed',
+                      'error_type': error_type,
+                      'error_message': error_message})
 
     if log_filepath is not None:
             log(log_filepath=log_filepath, entry = entry)
