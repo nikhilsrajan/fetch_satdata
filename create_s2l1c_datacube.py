@@ -605,6 +605,9 @@ def create_s2l1c_datacube_and_update_catalog(
                                                     crs=catalogmanager.EPSG_4326)
     union_shape = union_shape_gdf['geometry'][0]
 
+    if print_messages:
+        print(f'Updating catalog: {datacube_catalog_filepath}')
+
     update_catalog(
         datacube_catalog_filepath = datacube_catalog_filepath,
         roi_name = roi_name,
