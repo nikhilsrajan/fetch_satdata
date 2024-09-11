@@ -18,6 +18,7 @@ import geopandas as gpd
 import datetime
 import time
 import json
+import os
 
 import sys
 sys.path.append('..')
@@ -36,8 +37,11 @@ RET_FAILED = 2
 def log(log_filepath:str, entry:dict):
     entry['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    with open(log_filepath) as h:
-        _logs = json.load(h)
+    if os.path.exists(log_filepath):
+        with open(log_filepath) as h:
+            _logs = json.load(h)
+    else:
+        _logs = []
     
     _logs.append(entry)
 
