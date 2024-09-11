@@ -95,6 +95,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    print(args)
+
     if args.roi.startswith('filepath='):
         roi_filepath = args.roi.removeprefix('filepath=')
         shapes_gdf = gpd.read_file(roi_filepath)
@@ -155,6 +157,7 @@ if __name__ == '__main__':
 
     if print_messages:
         print('--- inputs ---')
+        print(f'roi-name: {args.roi_name}')
         print(f'roi: {args.roi}')
         print(f'startdate: {args.startdate}')
         print(f'enddate: {args.enddate}')
