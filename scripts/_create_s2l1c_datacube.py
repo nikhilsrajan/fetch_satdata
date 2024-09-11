@@ -78,7 +78,7 @@ if __name__ == '__main__':
         ),
         epilog = f"--- Send your complaints to {','.join(config.MAINTAINERS)} ---",
     )
-    parser.add_argument('roi-name', help='Name to uniquely identify the region of the interest. This is logged in the catalog and will throw error if same shape has been given a different name earlier or if the name is already used.')
+    parser.add_argument('roi_name', help='Name to uniquely identify the region of the interest. This is logged in the catalog and will throw error if same shape has been given a different name earlier or if the name is already used.')
     parser.add_argument('roi', help='filepath=path/to/shapefile | s2gridid=S2GridID')
     parser.add_argument('startdate', help='YYYY-MM-DD')
     parser.add_argument('enddate', help='YYYY-MM-DD')
@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    roi_name = args['roi-name']
+    roi_name = args.roi_name
 
     if args.roi.startswith('filepath='):
         roi_filepath = args.roi.removeprefix('filepath=')
