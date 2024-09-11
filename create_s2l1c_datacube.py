@@ -512,6 +512,7 @@ def create_s2l1c_datacube_and_update_catalog(
     config = Configuration(
         cloud_threshold = cloud_threshold,
         mosaic_days = mosaic_days,
+        bands = bands,
     )
 
     is_new_config = new_config_action(

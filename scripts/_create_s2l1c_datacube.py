@@ -96,6 +96,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     roi_name = args.roi_name
+    datacube_catalog_filepath = args.datacube_catalog
 
     if args.roi.startswith('filepath='):
         roi_filepath = args.roi.removeprefix('filepath=')
@@ -157,6 +158,7 @@ if __name__ == '__main__':
 
     if print_messages:
         print('--- inputs ---')
+        print(f'datacube_catalog_filepath: {datacube_catalog_filepath}')
         print(f'roi-name: {roi_name}')
         print(f'roi: {args.roi}')
         print(f'startdate: {args.startdate}')
@@ -180,7 +182,7 @@ if __name__ == '__main__':
         enddate = enddate,
         bands = bands,
         njobs = njobs,
-        datacube_catalog_filepath = args.datacube_catalog,
+        datacube_catalog_filepath = datacube_catalog_filepath,
         s2cloudless_chunksize = s2cloudless_chunksize,
         cloud_threshold = cloud_threshold,
         mosaic_days = mosaic_days,
