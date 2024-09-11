@@ -62,7 +62,7 @@ def main(
 
 if __name__ == '__main__':
     start_time = time.time()
-    
+
     parser = argparse.ArgumentParser(
         prog = 'python create_s2l1c_datacube_and_zip.py',
         description = (
@@ -72,7 +72,7 @@ if __name__ == '__main__':
             'mosaicing. The datacube is then saved into the specified folderpath '
             'and zipped.'    
         ),
-        epilog = '--- Send your complaints to nsasiraj@umd.edu ---',
+        epilog = f"--- Send your complaints to {','.join(config.MAINTAINERS)} ---",
     )
     parser.add_argument('roi', help='filepath=path/to/shapefile | s2gridid=S2GridID')
     parser.add_argument('startdate', help='YYYY-MM-DD')

@@ -1,5 +1,13 @@
 import os
 
+AUTHORS = [
+    'nsasiraj@umd.edu',
+]
+
+MAINTAINERS = [
+    'nsasiraj@umd.edu',
+]
+
 FOLDERPATH_SATELLITE = '../data/satellite'
 FOLDERPATH_FETCH_CATALOG_CACHE = '../data/fetch_catalog_cache'
 FOLDERPATH_DATACUBES = '../data/datacubes'

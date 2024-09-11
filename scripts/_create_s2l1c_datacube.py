@@ -76,7 +76,7 @@ if __name__ == '__main__':
             'mosaicing. The datacube is then saved into the datacubes folderpath '
             'and the catalog is updated.'
         ),
-        epilog = '--- Send your complaints to nsasiraj@umd.edu ---',
+        epilog = f"--- Send your complaints to {','.join(config.MAINTAINERS)} ---",
     )
     parser.add_argument('roi-name', help='Name to uniquely identify the region of the interest. This is logged in the catalog and will throw error if same shape has been given a different name earlier or if the name is already used.')
     parser.add_argument('roi', help='filepath=path/to/shapefile | s2gridid=S2GridID')

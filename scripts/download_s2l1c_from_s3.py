@@ -15,7 +15,7 @@ if __name__ == '__main__':
         description = (
             'Script to download S2L1C tiles from S3.'    
         ),
-        epilog = '--- Send your complaints to nsasiraj@umd.edu ---',
+        epilog = f"--- Send your complaints to {','.join(config.MAINTAINERS)} ---",
     )
 
     parser.add_argument('cdse_creds_json', help='/path/to/cdse_credentials.json')
