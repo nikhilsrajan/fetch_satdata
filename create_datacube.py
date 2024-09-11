@@ -26,7 +26,10 @@ def dt2ts(
     dt:datetime.datetime, 
     tz='UTC',
 ):
-    return pd.Timestamp(dt, tz=tz)
+    if dt.tzinfo is None:
+        return pd.Timestamp(dt, tz=tz)
+    
+    return pd.Timestamp(dt)
 
 
 def get_unary_gdf(
