@@ -96,8 +96,6 @@ def new_config_action(
     configs_manager = configsmanager.ConfigsManager(configs_filepath=configs_filepath)
     config_id = configs_manager.get_config_id(config = config.to_dict())
 
-    print(f'DEBUG -- config_id: {config_id}')
-
     is_new_config =  config_id == configsmanager.ConfigsManager.NULL_ID
     
     if is_new_config:
@@ -116,6 +114,7 @@ def log_and_get_config_id(
 ):
     configs_manager = configsmanager.ConfigsManager(configs_filepath=configs_filepath)
     config_id = configs_manager.log_config(config=config.to_dict())
+    configs_manager.save()
     return config_id
 
 
