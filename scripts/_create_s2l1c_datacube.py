@@ -83,7 +83,6 @@ if __name__ == '__main__':
     parser.add_argument('startdate', help='YYYY-MM-DD')
     parser.add_argument('enddate', help='YYYY-MM-DD')
     parser.add_argument('bands', default='all', help='all, or bands comma separated B02,B03,B04,B08 (default = all)')
-    parser.add_argument('out', help='/path/to/output')
     parser.add_argument('--njobs', default=4, help='Number of cores to use. (default = 4)')
     parser.add_argument('-s2c', '--s2cloudless', action='store', required=False, help='Whether to run s2cloudless and if so at what chunk size.')
     parser.add_argument('-m', '--mosaic', action='store', required=False, help='Whether to perform median mosaicing and if so in intervals of how many days (most used interval: 20.')
@@ -152,7 +151,6 @@ if __name__ == '__main__':
     if args.warn_missing_files:
         if_missing_files = 'warn'
 
-    out_folderpath = args.out
     overwrite = args.overwrite
 
     if print_messages:
@@ -161,7 +159,6 @@ if __name__ == '__main__':
         print(f'startdate: {args.startdate}')
         print(f'enddate: {args.enddate}')
         print(f'bands: {bands}')
-        print(f'out: {out_folderpath}')
         print(f'njobs: {njobs}')
         if s2cloudless_chunksize is not None:
             print(f's2cloudless_chunksize: {s2cloudless_chunksize}')
@@ -172,6 +169,22 @@ if __name__ == '__main__':
             print(f'if_missing_files: {if_missing_files}')
         if overwrite:
             print('OVERWRITE: True')
+
+    main(
+        roi_name = args.roi_name,
+        shapes_gdf = shapes_gdf,
+        startdate = startdate,
+        enddate = enddate,
+        bands = bands,
+        njobs = njobs,
+        datacube_catalog_filepath = args.datacube_catalog,
+        s2cloudless_chunksize = s2cloudless_chunksize,
+        cloud_threshold = cloud_threshold,
+        mosaic_days = mosaic_days,
+        print_messages = print_messages,
+        if_missing_files = if_missing_files,
+        overwrite = overwrite,
+    )
     
     end_time = time.time()
 
