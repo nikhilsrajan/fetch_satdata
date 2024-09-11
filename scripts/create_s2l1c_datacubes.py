@@ -7,6 +7,6 @@ Steps:
 3. check for roi_name and geometry conflicts and raise error if any present
 4. create a copy of the datacube catalog with new name for each thread
 5. create a list of cli inputs
-6. execute cli inputs via multi-threading
+6. execute cli inputs via multi-threading -- stagger the calls by random or fixed delays
 7. merge the datacube catalogs in a non-conflicting manner
 """

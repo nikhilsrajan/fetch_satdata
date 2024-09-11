@@ -38,6 +38,7 @@ COL_FILES = 'files'
 
 FILENAME_DATACUBE = 'datacube.npy'
 FILENAME_METADATA = 'metadata.pickle.npy'
+FILENAME_MEANSUNANGLE = 'mean_sun_angle.csv'
 
 REF_BAND_ORDER = [
     'B08', 'B04', 'B03', 'B02', # 10m
@@ -312,9 +313,15 @@ def check_if_datacube_already_present(
 
     if same_datacube_df.shape[0] == 1:
         folderpath = same_datacube_df[COL_LOCAL_FOLDERPATH].to_list()[0]
-        datacube_filepath = os.path.join(folderpath, FILENAME_DATACUBE)
-        metadata_filepath = os.path.join(folderpath, FILENAME_METADATA)
-        if os.path.exists(datacube_filepath) and os.path.exists(metadata_filepath):
+        # I know that COL_FILES is basically list of string joined by ',' 
+        # cause of how CatalogManager is designed to function.
+        # Should be a better way to do this so that it won't look like magic.
+        # Perhaps by having a get method within CatalogManager
+        files = same_datacube_df[COL_FILES].to_list()[0].split(',')
+        catalog_mentioned_filepaths = [
+            os.path.join(folderpath, file) for file in files
+        ]
+        if all(os.path.exists(filepath) for filepath in catalog_mentioned_filepaths):
             return True
         else:
             raise exceptions.MajorException(
@@ -325,8 +332,7 @@ def check_if_datacube_already_present(
                 f"{COL_ENDDATE}: {create_datacube.dt2ts(dt=actual_enddate)}\n"
                 f"{COL_CONFIG_ID}: {config_id}\n"
                 f"{COL_LOCAL_FOLDERPATH}: {folderpath}\n"
-                f"datacube_filepath: {datacube_filepath}\n"
-                f"metadata_filepath: {metadata_filepath}"
+                f"catalog_mentioned_filepaths: {catalog_mentioned_filepaths}"
             )
 
     elif same_datacube_df.shape[0] > 1:
@@ -418,7 +424,8 @@ def create_s2l1c_datacube(
         enddate = enddate,
         print_messages = print_messages,
     )
-    mean_sun_angle_df.to_csv(os.path.join(export_folderpath, 'mean_sun_angle.csv'), index=False)
+    mean_sun_angle_filepath = os.path.join(export_folderpath, FILENAME_MEANSUNANGLE)
+    mean_sun_angle_df.to_csv(mean_sun_angle_filepath, index=False)
 
     datacube_ops_sequence = []
 
@@ -485,7 +492,7 @@ def update_catalog(
         COL_ENDDATE: actual_enddate,
         COL_CONFIG_ID: config_id,
         COL_LOCAL_FOLDERPATH: datacube_folderpath,
-        COL_FILES: [FILENAME_DATACUBE, FILENAME_METADATA],
+        COL_FILES: [FILENAME_DATACUBE, FILENAME_METADATA, FILENAME_MEANSUNANGLE],
         COL_GEOMETRY: geometry_epsg_4326,
     })
     dcm.save()

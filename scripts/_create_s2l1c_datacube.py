@@ -7,6 +7,10 @@ will for the purposes of testing (krkrkkk)
 
 --- nikhilsasirajan@gmail.com ---
 
+
+TO DO:
+- add log file as well
+
 """
 
 import argparse
