@@ -83,6 +83,9 @@ def main(
         }
     }
     
+    error_type = None
+    error_message = None
+
     try:
         ret = create_s2l1c_datacube.create_s2l1c_datacube_and_update_catalog(
             satellite_catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
@@ -116,23 +119,22 @@ def main(
     except exceptions.CatalogManagerException as e:
         error_type = 'CatalogManagerException'
         error_message = str(e)
-        entry.update({'status': 'failed',
-                      'error_type': error_type,
-                      'error_message': error_message})
     
     except exceptions.DatacubeException as e:
         error_type = 'DatacubeException'
         error_message = str(e)
-        entry.update({'status': 'failed',
-                      'error_type': error_type,
-                      'error_message': error_message})
 
     except exceptions.MetadataException as e:
         error_type = 'MetadataException'
         error_message = str(e)
+
+
+    if error_type is not None:
         entry.update({'status': 'failed',
                       'error_type': error_type,
                       'error_message': error_message})
+        
+        print(f'FAILED -- {error_type}: {error_message}')
 
     if log_filepath is not None:
             log(log_filepath=log_filepath, entry = entry)
