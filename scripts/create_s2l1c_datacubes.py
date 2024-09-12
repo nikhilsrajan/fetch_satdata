@@ -1,6 +1,6 @@
 """
 Steps:
-0. create a logging mechanism
+0. create a logging mechanism [DONE]
 1. go through config tracker and all configurations passed and ask user if they
    wish to add new configs (have a flag to directly say yes)
 2. update config tracker with new configurations to avoid deadlocks/race-conditions

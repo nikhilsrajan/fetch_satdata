@@ -199,7 +199,7 @@ def check_if_there_are_files_missing(
         if len(partially_missing_files) > 0:
             msgs.append(f'Partially missing files: {partially_missing_files}')
 
-    msg = '\n'.join(msgs)
+    msg = '; '.join(msgs)
 
     return stats, missing_flags, msg
 
@@ -586,10 +586,10 @@ def missing_files_action(
     )
     # If there are no files present raise error no matter.
     if missing_flags['all']:
-        raise exceptions.DatacubeException('Missing files error\n' + msg)
+        raise exceptions.DatacubeException('Missing files error -- ' + msg)
     if any(missing_flags.values()):
         if if_missing_files == 'raise_error':
-            raise exceptions.DatacubeException('Missing files error\n' + msg)
+            raise exceptions.DatacubeException('Missing files error -- ' + msg)
         elif if_missing_files == 'warn':
             warnings.warn(message = 'Missing files warning\n' + msg, 
                           category = RuntimeWarning)
