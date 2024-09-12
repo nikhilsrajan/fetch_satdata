@@ -25,9 +25,8 @@ import rsutils.s2_grid_utils
 import exceptions
 
 
-RET_SUCCESS_NEW = 0
-RET_SUCCESS_OVERWRITE = 1
-RET_FAILED = 2
+RET_SUCCESS = 0
+RET_FAILED = 1
 
 
 def log(log_filepath:str, entry:dict):
@@ -103,14 +102,13 @@ def main(
             overwrite = overwrite,
         )
         if ret == create_s2l1c_datacube.DATACUBE_CREATED:
-            ret_code = RET_SUCCESS_NEW
             entry.update({'status': 'success', 'type':'new'})
         elif ret == create_s2l1c_datacube.DATACUBE_ALREADY_EXISTS:
-            ret_code = RET_SUCCESS_NEW
             entry.update({'status': 'success', 'type':'already exists'})
         elif ret == create_s2l1c_datacube.DATACUBE_OVERWRITTEN:
-            ret_code = RET_SUCCESS_NEW
             entry.update({'status': 'success', 'type':'overwritten'})
+            
+        ret_code = RET_SUCCESS
 
     except exceptions.CatalogManagerException as e:
         error_type = 'CatalogManagerException'
