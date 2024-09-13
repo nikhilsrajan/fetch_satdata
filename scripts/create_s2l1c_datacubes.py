@@ -348,6 +348,7 @@ if __name__ == '__main__':
     parser.add_argument('--add-new-config', action='store_true', help=f'To allow addition of new config. {WILL_BE_OVERRIDDEN}')
 
     parser.add_argument('--log-folder', action='store', required=False, help='Folderpath where log files will be created.')
+    parser.add_argument('--parameters-folder', action='store', required=False, help='Folderpath where parameter files will be created.')
 
     args = parser.parse_args()
 
@@ -402,6 +403,7 @@ if __name__ == '__main__':
             parameters_table[COL_CLOUD_THRESHOLD] = None
 
     log_folderpath = args.log_folder
+    parameters_folderpath = args.parameters_folder
     
     if_missing_files = 'raise_error'
     if args.ignore_missing_files:
@@ -478,5 +480,10 @@ if __name__ == '__main__':
 
     parameters_df[COL_SUCCESSFUL] = successes
 
-    print(parameters_df)
+    os.makedirs(parameters_folderpath, exist_ok=True)
+    parameters_filepath = os.path.join(parameters_folderpath, 
+                                       f'parameters_{rsutils.utils.get_epochs_str(length=0)}.csv')
+    parameters_df.to_csv(parameters_filepath, index=False)
+
+    print(f'success: {sum(successes)} / {len(successes)}')
 
