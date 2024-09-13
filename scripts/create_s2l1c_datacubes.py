@@ -21,6 +21,7 @@ import subprocess
 import tqdm
 import shutil
 import os
+import json
 
 import sys
 sys.path.append('..')
@@ -42,6 +43,7 @@ COL_IF_MISSING_FILES = 'if_missing_files'
 COL_S2CLOUDLESS_CHUNKSIZE = 's2cloudless_chunksize' # 0 means no s2cloudless running
 COL_CLOUD_THRESHOLD = 'cloud_threshold' # None means no thresholding
 COL_MOSAIC_DAYS = 'mosaic_days' # 0 means no median mosaicing
+COL_SUCCESSFUL = 'successful'
 
 EPSG_4326 = 'epsg:4326'
 
@@ -84,6 +86,86 @@ def run_cli_list(
             pbar.update()
         ret_codes.append(ret_code)
     return ret_codes
+
+
+def merge_separate_catalogs_and_save(
+    datacube_catalog_filepaths:list[str],
+    main_datacube_catalog_filepath:str
+):
+    catalogs_gdfs = [gpd.read_file(dc_catalog_filepath) 
+                     for dc_catalog_filepath in datacube_catalog_filepaths]
+    merged_catalog_gdf = gpd.GeoDataFrame(
+        pd.concat(catalogs_gdfs).drop_duplicates(), 
+        crs=catalogs_gdfs[0].crs,
+    )
+    merged_catalog_gdf.to_file(main_datacube_catalog_filepath)
+    for dc_catalog_filepath in datacube_catalog_filepaths:
+        os.remove(dc_catalog_filepath)
+
+
+def merge_logs_and_save(
+    log_filepaths:list[str],
+    main_log_filepath:str,
+):
+    combined_log = []
+    for log_filepath in log_filepaths:
+        with open(log_filepath) as h:
+            log = json.load(h)
+        combined_log += log
+        os.remove(log_filepath)
+    
+    with open(main_log_filepath, 'w') as h:
+        json.dump(combined_log, h)
+
+
+def run_cli_list_parallel(
+    cli_inputs:list[str],
+    max_compute:int,
+    njobs:int,
+    log_folderpath:str,
+    main_datacube_catalog_filepath:str,
+):
+    main_log_filepath = os.path.join(
+        log_folderpath, f'log_{rsutils.utils.get_epochs_str(length=0)}.json'
+    )
+
+    pbar = tqdm.tqdm(total=len(cli_inputs))
+
+    parallel_thread_count = max_compute // njobs
+    
+    parallel_cli_inputs = split(cli_inputs, parallel_thread_count)
+
+    datacube_catalog_filepaths, log_filepaths = \
+    create_datacube_catalog_copies_and_log_filepaths(
+        n = parallel_thread_count,
+        main_datacube_catalog_filepath = main_datacube_catalog_filepath,
+        log_folderpath = log_folderpath,
+    )
+
+    with mppool.ThreadPool(processes=parallel_thread_count) as pool:
+        ret_code_lists = pool.starmap(run_cli_list, zip(parallel_cli_inputs,
+                                                        datacube_catalog_filepaths,
+                                                        log_filepaths,
+                                                        [pbar for _ in range(parallel_thread_count)]))
+    
+    ret_codes = []
+    for _ret_codes in ret_code_lists:
+        ret_codes += _ret_codes
+
+    merge_separate_catalogs_and_save(
+        datacube_catalog_filepaths = datacube_catalog_filepaths,
+        main_datacube_catalog_filepath = main_datacube_catalog_filepath,
+    )
+
+    merge_logs_and_save(
+        log_filepaths = log_filepaths,
+        main_log_filepath = main_log_filepath,
+    )
+
+    successes = [ret_code == _create_s2l1c_datacube.RET_SUCCESS
+                 for ret_code in ret_codes]
+    
+    return successes
 
 
 def generate_cli_input(
@@ -208,14 +290,14 @@ def create_datacube_catalog_copies_and_log_filepaths(
     log_filepaths = []
 
     for _ in range(n):
-        suffix = rsutils.utils.get_epochs_str()
+        suffix = '_' + rsutils.utils.get_epochs_str()
         
         _dc_copy_filepath = rsutils.utils.modify_filepath(
             filepath = main_datacube_catalog_filepath,
             suffix = suffix,
             new_folderpath = catalog_folderpath,
         )
-        _log_filepath = os.path.join(log_folderpath, f'logs_{suffix}.json')
+        _log_filepath = os.path.join(log_folderpath, f'logs{suffix}.json')
 
         datacube_catalog_copies_filepaths.append(_dc_copy_filepath)
         log_filepaths.append(_log_filepath)
@@ -383,23 +465,15 @@ if __name__ == '__main__':
         overwrite = overwrite,
     )
 
-    pbar = tqdm.tqdm(total=len(cli_inputs))
-
-    parallel_thread_count = max_compute // njobs
-    
-    parallel_cli_inputs = split(cli_inputs, parallel_thread_count)
-
-    datacube_catalog_filepaths, log_filepaths = \
-    create_datacube_catalog_copies_and_log_filepaths(
-        n = parallel_thread_count,
-        main_datacube_catalog_filepath = config.FILEPATH_S2L1C_DATACUBE_CATALOG,
+    successes = run_cli_list_parallel(
+        cli_inputs = cli_inputs,
+        max_compute = max_compute,
+        njobs = njobs,
         log_folderpath = log_folderpath,
+        main_datacube_catalog_filepath = config.FILEPATH_S2L1C_DATACUBE_CATALOG,
     )
 
-    with mppool.ThreadPool(processes=parallel_thread_count) as pool:
-        ret_code_lists = pool.starmap(run_cli_list, zip(parallel_cli_inputs,
-                                                        datacube_catalog_filepaths,
-                                                        log_filepaths,
-                                                        [pbar for _ in range(parallel_thread_count)]))
-    
-    print(ret_code_lists)
+    parameters_df[COL_SUCCESSFUL] = successes
+
+    print(parameters_df)
+
