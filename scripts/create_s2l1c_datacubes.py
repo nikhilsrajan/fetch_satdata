@@ -93,7 +93,8 @@ def merge_separate_catalogs_and_save(
     main_datacube_catalog_filepath:str
 ):
     catalogs_gdfs = [gpd.read_file(dc_catalog_filepath) 
-                     for dc_catalog_filepath in datacube_catalog_filepaths]
+                     for dc_catalog_filepath in datacube_catalog_filepaths
+                     if os.path.exists(dc_catalog_filepath)]
     merged_catalog_gdf = gpd.GeoDataFrame(
         pd.concat(catalogs_gdfs).drop_duplicates(), 
         crs=catalogs_gdfs[0].crs,
@@ -109,6 +110,8 @@ def merge_logs_and_save(
 ):
     combined_log = []
     for log_filepath in log_filepaths:
+        if not os.path.exists(log_filepath):
+            continue
         with open(log_filepath) as h:
             log = json.load(h)
         combined_log += log
