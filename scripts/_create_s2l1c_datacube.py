@@ -27,6 +27,7 @@ import exceptions
 
 RET_SUCCESS = 0
 RET_FAILED = 1
+RET_CLI_FAILED = 2 # see argparse
 
 
 def log(log_filepath:str, entry:dict):
@@ -107,7 +108,7 @@ def main(
             entry.update({'status': 'success', 'type':'already exists'})
         elif ret == create_s2l1c_datacube.DATACUBE_OVERWRITTEN:
             entry.update({'status': 'success', 'type':'overwritten'})
-            
+
         ret_code = RET_SUCCESS
 
     except exceptions.CatalogManagerException as e:
@@ -127,11 +128,11 @@ def main(
         entry.update({'status': 'failed',
                       'error_type': error_type,
                       'error_message': error_message})
-        
-        print(f'FAILED -- {error_type}: {error_message}')
+        if print_messages:
+            print(f'FAILED -- {error_type}: {error_message}')
 
     if log_filepath is not None:
-            log(log_filepath=log_filepath, entry = entry)
+        log(log_filepath=log_filepath, entry = entry)
     
     return ret_code
 
@@ -157,10 +158,10 @@ if __name__ == '__main__':
     parser.add_argument('roi', help='filepath=path/to/shapefile | s2gridid=S2GridID')
     parser.add_argument('startdate', help='YYYY-MM-DD')
     parser.add_argument('enddate', help='YYYY-MM-DD')
-    parser.add_argument('bands', default='all', help='all, or bands comma separated B02,B03,B04,B08 (default = all)')
-    parser.add_argument('--njobs', default=4, help='Number of cores to use. (default = 4)')
-    parser.add_argument('-s2c', '--s2cloudless', action='store', required=False, help='Whether to run s2cloudless and if so at what chunk size.')
-    parser.add_argument('-m', '--mosaic', action='store', required=False, help='Whether to perform median mosaicing and if so in intervals of how many days (most used interval: 20.')
+    parser.add_argument('bands', default='all', help='[default = all] all, or bands comma separated B02,B03,B04,B08')
+    parser.add_argument('--njobs', default=4, help='[default = 4] Number of cores to use.')
+    parser.add_argument('-s2c', '--s2cloudless', action='store', metavar='CHUNKSIZE', required=False, help='Whether to run s2cloudless and if so at what chunk size.')
+    parser.add_argument('-m', '--mosaic', action='store', required=False, help='[suggested = 20] Whether to perform median mosaicing and if so in intervals of how many days.')
     parser.add_argument('-c', '--cloud-threshold', action='store', default=0, required=False, help='The probabiliy threshold at and above which the pixel is considered cloud. Must be from 0 to 1.')
     parser.add_argument('--silent', action='store_true', help='To run the script without any print statements.')
     parser.add_argument('--ignore-missing-files', action='store_true', help='If there are missing files for requested region and date range, this option ignores the error and proceeds, except when there are no files present.')

@@ -149,6 +149,19 @@ def load_datacube_catalog_manager(
     return datacube_catalog_manager
 
 
+def get_unique_id_geom_gdf(
+    gdf:gpd.GeoDataFrame,
+    id_col:str,
+    geometry_col:str = 'geometry',
+):
+    return gpd.GeoDataFrame(
+        gdf[
+            [id_col, geometry_col]
+        ].drop_duplicates().reset_index(drop=True),
+        crs = gdf.crs,
+    )
+
+
 def get_roi_geom_gdf(
     datacube_catalog_filepath:str,
 ):
@@ -156,27 +169,17 @@ def get_roi_geom_gdf(
         datacube_catalog_filepath = datacube_catalog_filepath
     ).catalog_gdf
 
-    roi_geom_gdf = gpd.GeoDataFrame(
-        datacube_catalog_gdf[
-            [COL_ROI_NAME, COL_GEOMETRY]
-        ].drop_duplicates().reset_index(drop=True),
-        crs = datacube_catalog_gdf.crs,
+    return get_unique_id_geom_gdf(
+        gdf = datacube_catalog_gdf,
+        id_col = COL_ROI_NAME,
+        geometry_col = COL_GEOMETRY
     )
 
-    return roi_geom_gdf
 
-
-def check_if_geom_present_exact(
+def check_if_geom_present_exact_core(
+    roi_geom_gdf:gpd.GeoDataFrame,
     shapes_gdf:gpd.GeoDataFrame,
-    datacube_catalog_filepath:str,
 ):
-    """
-    Returns string if same geometry is found else None.
-    """
-    roi_geom_gdf = get_roi_geom_gdf(
-        datacube_catalog_filepath = datacube_catalog_filepath
-    )
-
     unary_gdf = create_datacube.get_unary_gdf(
         shapes_gdf = shapes_gdf,
         crs = roi_geom_gdf.crs,
@@ -198,6 +201,22 @@ def check_if_geom_present_exact(
             break
     
     return same_geom_roi_name
+
+
+def check_if_geom_present_exact(
+    shapes_gdf:gpd.GeoDataFrame,
+    datacube_catalog_filepath:str,
+):
+    """
+    Returns string if same geometry is found else None.
+    """
+    roi_geom_gdf = get_roi_geom_gdf(
+        datacube_catalog_filepath = datacube_catalog_filepath
+    )
+    return check_if_geom_present_exact_core(
+        roi_geom_gdf = roi_geom_gdf,
+        shapes_gdf = shapes_gdf,
+    )
 
 
 def check_if_roi_name_already_used(
@@ -499,6 +518,46 @@ def update_catalog(
     dcm.save()
 
 
+GEOM_EXISTS_WITH_DIFFERENT_NAME = 'status::geom-exists-with-different-name'
+NAME_EXISTS_FOR_DIFFERENT_GEOM = 'status::name-exists-for-different-geom'
+GEOM_NAME_CONSISTENT = 'status::geom-name-consistent'
+
+
+def geom_roi_name_check(
+    roi_name:str,
+    shapes_gdf:gpd.GeoDataFrame,
+    datacube_catalog_filepath:str,
+):
+    same_shape_roi_name = check_if_geom_present_exact(
+        shapes_gdf = shapes_gdf,
+        datacube_catalog_filepath = datacube_catalog_filepath,
+    )
+    msg = None
+
+    if same_shape_roi_name is not None:
+        if same_shape_roi_name != roi_name:
+            msg = (
+                "The given geometry matches exactly with a previous entry "
+                f"under a different roi_name='{same_shape_roi_name}'. "
+                "Check with the other users of the create_s2l1c_datacube or "
+                f"consider using '{same_shape_roi_name}' as the roi_name instead "
+                f"of '{roi_name}'."
+            )
+            return GEOM_EXISTS_WITH_DIFFERENT_NAME, msg
+        
+    elif check_if_roi_name_already_used(
+        roi_name=roi_name, 
+        datacube_catalog_filepath=datacube_catalog_filepath,
+    ):
+        msg = (
+            f"roi_name={roi_name} is already used for another geometry. "
+            "Please try a different roi_name."
+        )
+        return NAME_EXISTS_FOR_DIFFERENT_GEOM, msg
+    
+    return GEOM_NAME_CONSISTENT, msg
+
+
 def create_s2l1c_datacube_and_update_catalog(
     satellite_catalog_filepath:str,
     datacube_catalog_filepath:str,
@@ -551,28 +610,14 @@ def create_s2l1c_datacube_and_update_catalog(
     actual_startdate = query_stats['timestamp_range'][0]
     actual_enddate = query_stats['timestamp_range'][1]
 
-    same_shape_roi_name = check_if_geom_present_exact(
+    geom_roi_check_status, msg = geom_roi_name_check(
+        roi_name = roi_name,
         shapes_gdf = shapes_gdf,
         datacube_catalog_filepath = datacube_catalog_filepath,
     )
-    if same_shape_roi_name is not None:
-        if same_shape_roi_name != roi_name:
-            raise exceptions.DatacubeException(
-                "The given geometry matches exactly with a previous entry "
-                f"under a different roi_name='{same_shape_roi_name}'. "
-                "Check with the other users of the create_s2l1c_datacube or "
-                f"consider using '{same_shape_roi_name}' as the roi_name instead "
-                f"of '{roi_name}'."
-            )
-    elif check_if_roi_name_already_used(
-        roi_name=roi_name, 
-        datacube_catalog_filepath=datacube_catalog_filepath,
-    ):
-        # same geom not present in the catalog but roi_name already used for another geom
-        raise exceptions.DatacubeException(
-            f"roi_name={roi_name} is already used for another geometry. "
-            "Please try a different roi_name."
-        )
+    if geom_roi_check_status in [GEOM_EXISTS_WITH_DIFFERENT_NAME, 
+                                 NAME_EXISTS_FOR_DIFFERENT_GEOM]:
+        raise exceptions.DatacubeException(msg)
     
     will_be_overwritten = False
         

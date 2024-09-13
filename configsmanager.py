@@ -35,7 +35,7 @@ class ConfigsManager:
         self.configs_filepath = configs_filepath
         if os.path.exists(configs_filepath):
             with open(configs_filepath) as h:
-                self.configs = json.load(h)
+                self.configs = {int(k): v for k, v in json.load(h).items()}
         else:
             self.configs = {}
 
