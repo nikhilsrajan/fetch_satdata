@@ -511,7 +511,7 @@ def update_catalog(
         COL_STARTDATE: actual_startdate,
         COL_ENDDATE: actual_enddate,
         COL_CONFIG_ID: config_id,
-        COL_LOCAL_FOLDERPATH: datacube_folderpath,
+        COL_LOCAL_FOLDERPATH: os.path.abspath(datacube_folderpath),
         COL_FILES: [FILENAME_DATACUBE, FILENAME_METADATA, FILENAME_MEANSUNANGLE],
         COL_GEOMETRY: geometry_epsg_4326,
     })
