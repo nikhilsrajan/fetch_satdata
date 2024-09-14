@@ -151,7 +151,9 @@ def run_cli_list_parallel(
                                                         datacube_catalog_filepaths,
                                                         log_filepaths,
                                                         [pbar for _ in range(parallel_thread_count)]))
-        
+        pool.close()
+        pool.join()
+
     ret_codes = []
     for _ret_codes in ret_code_lists:
         ret_codes += _ret_codes
