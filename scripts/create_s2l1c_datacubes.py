@@ -13,7 +13,7 @@ Steps:
 
 import argparse
 import multiprocessing as mp
-import multiprocessing.pool as mppool
+# import multiprocessing.pool as mppool
 import pandas as pd
 import geopandas as gpd
 import datetime
@@ -145,11 +145,12 @@ def run_cli_list_parallel(
         log_folderpath = log_folderpath,
     )
 
-    with mppool.ThreadPool(processes=parallel_thread_count) as pool:
-        ret_code_lists = pool.starmap(run_cli_list, zip(parallel_cli_inputs,
-                                                        datacube_catalog_filepaths,
-                                                        log_filepaths,
-                                                        [pbar for _ in range(parallel_thread_count)]))
+    # with mppool.ThreadPool(processes=parallel_thread_count) as pool:
+    pool = mp.Pool(processes = parallel_thread_count)
+    ret_code_lists = pool.starmap(run_cli_list, zip(parallel_cli_inputs,
+                                                    datacube_catalog_filepaths,
+                                                    log_filepaths,
+                                                    [pbar for _ in range(parallel_thread_count)]))
     
     ret_codes = []
     for _ret_codes in ret_code_lists:
