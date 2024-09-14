@@ -1,6 +1,10 @@
 import os
 import json
 import pandas as pd
+import multiprocessing as mp
+
+
+mutex = mp.Lock()
 
 
 def check_diff(
@@ -34,8 +38,10 @@ class ConfigsManager:
     def __init__(self, configs_filepath:str):
         self.configs_filepath = configs_filepath
         if os.path.exists(configs_filepath):
-            with open(configs_filepath) as h:
-                self.configs = {int(k): v for k, v in json.load(h).items()}
+            with mutex:
+                with open(configs_filepath) as h:
+                    self.configs = json.load(h)
+            self.configs = {int(k): v for k, v in self.configs.items()}
         else:
             self.configs = {}
 
