@@ -15,6 +15,8 @@ DTYPE_MULTIPOLYGON = 'multipolygon'
 DTYPE_LIST_STR = 'list[str]'
 
 COL_ID = 'id'
+COL_LOCAL_FOLDERPATH = 'local_folderpath'
+COL_FILES = 'files'
 COL_LAST_UPDATE = 'last_update'
 
 EPSG_4326 = 'epsg:4326'

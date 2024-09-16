@@ -33,8 +33,8 @@ COL_GEOMETRY = 'geometry'
 COL_STARTDATE = 'startdate'
 COL_ENDDATE = 'enddate'
 COL_CONFIG_ID = 'config_id'
-COL_LOCAL_FOLDERPATH = 'local_folderpath'
-COL_FILES = 'files'
+COL_LOCAL_FOLDERPATH = catalogmanager.COL_LOCAL_FOLDERPATH
+COL_FILES = catalogmanager.COL_FILES
 
 FILENAME_DATACUBE = 'datacube.npy'
 FILENAME_METADATA = 'metadata.pickle.npy'

@@ -7,17 +7,17 @@ import json
 import sshutils
 import sshcreds
 import create_datacube
-import create_s2l1c_datacube
+import catalogmanager
 
 
 # not using os.path.join as separator is set by local OS where as UMD cluster is a fixed OS
 FOLDERPATH_SATELLITE = '/gpfs/data1/cmongp2/sasirajann/fetch_satdata/data/satellite/'
-FOLDERPATH_DATACUBE = '/gpfs/data1/cmongp2/sasirajann/fetch_satdata/data/datacubes/'
-FOLDERPATH_DATACUBE_S2L1C = FOLDERPATH_DATACUBE + 's2l1c/'
+FOLDERPATH_DATACUBES = '/gpfs/data1/cmongp2/sasirajann/fetch_satdata/data/datacubes/'
+FOLDERPATH_DATACUBES_S2L1C = FOLDERPATH_DATACUBES + 's2l1c/'
 
 FILEPATH_SATELLITE_SENTINEL2_CATALOG = FOLDERPATH_SATELLITE + 'Sentinel-2/catalog.geojson'
-FILEPATH_DATACUBE_S2L1C_CATALOG = FOLDERPATH_DATACUBE_S2L1C + 'catalog.geojson'
-FILEPATH_DATACUBE_S2L1C_CONFIGURATIONS = FOLDERPATH_DATACUBE_S2L1C + 'configurations.json'
+FILEPATH_DATACUBES_S2L1C_CATALOG = FOLDERPATH_DATACUBES_S2L1C + 'catalog.geojson'
+FILEPATH_DATACUBES_S2L1C_CONFIGURATIONS = FOLDERPATH_DATACUBES_S2L1C + 'configurations.json'
 
 
 def remotepath_to_localpath(
@@ -94,20 +94,20 @@ def download_intersecting_sentinel2_tiles_from_cluster(
     return band_filepaths_df
 
 
-def load_datacube_s2l1c_catalog(
+def load_satellite_sentinel2_catalog(
     sshcreds:sshcreds.SSHCredentials,
-    datacubes_folderpath:str,
+    satellite_folderpath:str,
     overwrite:bool = False,
-) -> gpd.GeoDataFrame:
+):
     catalog_filepath = remotepath_to_localpath(
-        remotepath = FILEPATH_DATACUBE_S2L1C_CATALOG,
-        remote_root_path = FOLDERPATH_DATACUBE,
-        local_root_path = datacubes_folderpath,
+        remotepath = FILEPATH_SATELLITE_SENTINEL2_CATALOG,
+        remote_root_path = FOLDERPATH_SATELLITE,
+        local_root_path = satellite_folderpath,
     )
 
     sshutils.download_file_from_cluster(
         sshcreds = sshcreds,
-        remotepath = FILEPATH_DATACUBE_S2L1C_CATALOG,
+        remotepath = FILEPATH_SATELLITE_SENTINEL2_CATALOG,
         download_filepath = catalog_filepath,
         overwrite = overwrite,
     )
@@ -115,20 +115,41 @@ def load_datacube_s2l1c_catalog(
     return gpd.read_file(catalog_filepath)
 
 
-def load_datacube_s2l1c_configurations(
+def load_datacubes_s2l1c_catalog(
     sshcreds:sshcreds.SSHCredentials,
     datacubes_folderpath:str,
     overwrite:bool = False,
 ) -> gpd.GeoDataFrame:
-    configs_filepath = remotepath_to_localpath(
-        remotepath = FILEPATH_DATACUBE_S2L1C_CONFIGURATIONS,
-        remote_root_path = FOLDERPATH_DATACUBE,
+    catalog_filepath = remotepath_to_localpath(
+        remotepath = FILEPATH_DATACUBES_S2L1C_CATALOG,
+        remote_root_path = FOLDERPATH_DATACUBES,
         local_root_path = datacubes_folderpath,
     )
 
     sshutils.download_file_from_cluster(
         sshcreds = sshcreds,
-        remotepath = FILEPATH_DATACUBE_S2L1C_CONFIGURATIONS,
+        remotepath = FILEPATH_DATACUBES_S2L1C_CATALOG,
+        download_filepath = catalog_filepath,
+        overwrite = overwrite,
+    )
+
+    return gpd.read_file(catalog_filepath)
+
+
+def load_datacubes_s2l1c_configurations(
+    sshcreds:sshcreds.SSHCredentials,
+    datacubes_folderpath:str,
+    overwrite:bool = False,
+) -> gpd.GeoDataFrame:
+    configs_filepath = remotepath_to_localpath(
+        remotepath = FILEPATH_DATACUBES_S2L1C_CONFIGURATIONS,
+        remote_root_path = FOLDERPATH_DATACUBES,
+        local_root_path = datacubes_folderpath,
+    )
+
+    sshutils.download_file_from_cluster(
+        sshcreds = sshcreds,
+        remotepath = FILEPATH_DATACUBES_S2L1C_CONFIGURATIONS,
         download_filepath = configs_filepath,
         overwrite = overwrite,
     )
@@ -139,43 +160,40 @@ def load_datacube_s2l1c_configurations(
     return configs
 
 
-def download_s2l1c_datacube(
+def _download_files_via_catalog(
+    catalog_gdf:gpd.GeoDataFrame,
     sshcreds:sshcreds.SSHCredentials,
     id:str,
-    datacubes_folderpath:str,
-    overwrite_catalog:bool = False,
-    overwrite:bool = False,
+    remote_root_path:str,
+    local_root_path:str,
+    overwrite_catalog:bool,
+    overwrite:bool,
+    catalog_name:str,
 ):
-    catalog_gdf = load_datacube_s2l1c_catalog(
-        sshcreds = sshcreds,
-        datacubes_folderpath = datacubes_folderpath,
-        overwrite = overwrite_catalog,
-    )
-
-    if id not in set(catalog_gdf[create_s2l1c_datacube.COL_ID]):
-        msg = f'id={id} not present in the s2l1c catalog.'
+    if id not in set(catalog_gdf[catalogmanager.COL_ID]):
+        msg = f'id={id} not present in the {catalog_name}.'
         if not overwrite_catalog:
             msg += ' Perhaps try overwrite_catalog=True in case the catalog is out of date.'
         raise KeyError(msg)
 
     selected_catalog_gdf = catalog_gdf[
-        catalog_gdf[create_s2l1c_datacube.COL_ID] == id
+        catalog_gdf[catalogmanager.COL_ID] == id
     ]
 
     if selected_catalog_gdf.shape[0] != 1: # will not be 0 cause that case is covered.
         raise ValueError(
             'This was not supposed to happen. id is supposed to be unique. '
-            'Something is not correct with the catalog creation process. '
+            f'Something is not correct with the {catalog_name} creation process. '
             'Please resolve this ASAP.'
         )
 
     # selected_catalog_gdf should have only 1 element at this point.
 
     remote_datacube_folderpath = selected_catalog_gdf[
-        create_s2l1c_datacube.COL_LOCAL_FOLDERPATH
+        catalogmanager.COL_LOCAL_FOLDERPATH
     ].to_list()[0]
 
-    files = selected_catalog_gdf[create_s2l1c_datacube.COL_FILES].to_list()[0].split(',')
+    files = selected_catalog_gdf[catalogmanager.COL_FILES].to_list()[0].split(',')
 
     download_filepaths = {}
 
@@ -186,8 +204,8 @@ def download_s2l1c_datacube(
 
         _download_filepath = remotepath_to_localpath(
             remotepath = remotepath,
-            remote_root_path = FOLDERPATH_DATACUBE,
-            local_root_path = datacubes_folderpath,
+            remote_root_path = remote_root_path,
+            local_root_path = local_root_path,
         )
 
         sshutils.download_file_from_cluster(
@@ -200,3 +218,53 @@ def download_s2l1c_datacube(
         download_filepaths[file] = _download_filepath
     
     return download_filepaths
+
+
+def download_s2l1c_datacube(
+    sshcreds:sshcreds.SSHCredentials,
+    id:str,
+    datacubes_folderpath:str,
+    overwrite_catalog:bool = False,
+    overwrite:bool = False,
+):
+    catalog_gdf = load_datacubes_s2l1c_catalog(
+        sshcreds = sshcreds,
+        datacubes_folderpath = datacubes_folderpath,
+        overwrite = overwrite_catalog,
+    )
+
+    return _download_files_via_catalog(
+        catalog_gdf = catalog_gdf,
+        sshcreds = sshcreds,
+        id = id,
+        remote_root_path = FOLDERPATH_DATACUBES,
+        local_root_path = datacubes_folderpath,
+        overwrite_catalog = overwrite_catalog,
+        overwrite = overwrite,
+        catalog_name = 's2l1c datacubes catalog'
+    )
+
+
+def download_sentinel2_satellite(
+    sshcreds:sshcreds.SSHCredentials,
+    id:str,
+    satellite_folderpath:str,
+    overwrite_catalog:bool = False,
+    overwrite:bool = False,
+):
+    catalog_gdf = load_satellite_sentinel2_catalog(
+        sshcreds = sshcreds,
+        satellite_folderpath = satellite_folderpath,
+        overwrite = overwrite_catalog,
+    )
+
+    return _download_files_via_catalog(
+        catalog_gdf = catalog_gdf,
+        sshcreds = sshcreds,
+        id = id,
+        remote_root_path = FOLDERPATH_SATELLITE,
+        local_root_path = satellite_folderpath,
+        overwrite_catalog = overwrite_catalog,
+        overwrite = overwrite,
+        catalog_name = 'Sentinel-2 satellite catalog'
+    )

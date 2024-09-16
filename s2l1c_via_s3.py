@@ -1,9 +1,7 @@
 import os
-import pandas as pd
 import geopandas as gpd
 import datetime
 import sentinelhub
-import shapely
 import logging
 
 import sys
@@ -18,10 +16,10 @@ import catalogmanager as cm
 
 COL_ID = cm.COL_ID
 COL_TIMESTAMP = 'timestamp'
-COL_LOCAL_FOLDERPATH = 'local_folderpath'
+COL_LOCAL_FOLDERPATH = cm.COL_LOCAL_FOLDERPATH
 COL_GEOMETRY = 'geometry'
 COL_LAST_UPDATE = cm.COL_LAST_UPDATE
-COL_FILES = 'files'
+COL_FILES = cm.COL_FILES
 COL_S3URL = 's3url'
 COL_CLOUDCOVER = 'cloud_cover'
 COL_GEOMETRY = 'geometry'
