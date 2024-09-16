@@ -1,122 +1,23 @@
 import os
-import paramiko
 import geopandas as gpd
-import functools
-import multiprocessing as mp
-import tqdm
 import datetime
 import pandas as pd
+import json
 
+import sshutils
 import sshcreds
 import create_datacube
+import create_s2l1c_datacube
 
-
-FOLDERPATH_SATELLITE = '/gpfs/data1/cmongp2/sasirajann/fetch_satdata/data/satellite/'
 
 # not using os.path.join as separator is set by local OS where as UMD cluster is a fixed OS
-FILEPATH_SENTINEL2_CATALOG = FOLDERPATH_SATELLITE + 'Sentinel-2/catalog.geojson'
+FOLDERPATH_SATELLITE = '/gpfs/data1/cmongp2/sasirajann/fetch_satdata/data/satellite/'
+FOLDERPATH_DATACUBE = '/gpfs/data1/cmongp2/sasirajann/fetch_satdata/data/datacubes/'
+FOLDERPATH_DATACUBE_S2L1C = FOLDERPATH_DATACUBE + 's2l1c/'
 
-
-def download_file_from_cluster(
-    sshcreds:sshcreds.SSHCredentials,
-    remotepath:str,
-    download_filepath:str = None,
-    download_folderpath:str = None,
-    enable_auto_add_policy:bool = True, # Trust all policy, perhaps best to keep it optional
-    overwrite:bool = False,
-):
-    if download_folderpath is None and download_filepath is None:
-        raise Exception(
-            "Either 'download_folderpath' or 'download_filepath' " + \
-            "should be non None."
-        )
-
-    if download_filepath is None:
-        filename = remotepath.split('/')[-1]
-        download_filepath = os.path.join(
-            download_folderpath, filename,
-        )
-    else:
-        download_folderpath = os.path.split(download_filepath)[0]
-    
-    os.makedirs(download_folderpath, exist_ok=True)
-
-    if not os.path.exists(download_filepath) or overwrite:
-        temp_download_filepath = download_filepath + '.temp'
-
-        # https://medium.com/@keagileageek/paramiko-how-to-ssh-and-file-transfers-with-python-75766179de73
-        ssh_client = paramiko.SSHClient()
-
-        if enable_auto_add_policy:
-            ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        
-        ssh_client.connect(
-            hostname = sshcreds.hostname,
-            username = sshcreds.username,
-            password = sshcreds.password,
-        )
-
-        ftp_client = ssh_client.open_sftp()
-
-        ftp_client.get(
-            remotepath = remotepath,
-            localpath = temp_download_filepath,
-        )
-
-        ftp_client.close()
-
-        if os.path.exists(download_filepath):
-            os.remove(download_filepath)
-
-        os.rename(temp_download_filepath, download_filepath)
-    
-    return download_filepath
-
-
-def _download_file_from_cluster_by_tuple(
-    remotepath_download_filepath_tuple:tuple[str, str],
-    sshcreds:sshcreds.SSHCredentials,
-    overwrite:bool = False,
-):
-    remotepath, download_filepath = remotepath_download_filepath_tuple
-
-    download_file_from_cluster(
-        sshcreds = sshcreds,
-        remotepath = remotepath,
-        download_filepath = download_filepath,
-        enable_auto_add_policy = True,
-        overwrite = overwrite,
-    )
-    download_success = os.path.exists(download_filepath)
-
-    return download_success
-
-
-def download_files_from_cluster(
-    sshcreds:sshcreds.SSHCredentials,
-    remotepaths:list[str],
-    download_filepaths:list[str],
-    overwrite:bool = False,
-    njobs:int = 16,
-):
-    if len(remotepaths) != len(download_filepaths):
-        raise ValueError('Size of remotepaths and download_filepaths do not match.')
-    
-    download_file_from_cluster_by_tuple_partial = functools.partial(
-        _download_file_from_cluster_by_tuple,
-        sshcreds = sshcreds,
-        overwrite = overwrite,
-    )
-
-    remotepath_download_filepath_tuples = list(zip(remotepaths, download_filepaths))
-
-    with mp.Pool(njobs) as p:
-        download_successes = list(tqdm.tqdm(
-            p.imap(download_file_from_cluster_by_tuple_partial, remotepath_download_filepath_tuples), 
-            total=len(remotepath_download_filepath_tuples)
-        ))
-    
-    return download_successes
+FILEPATH_SATELLITE_SENTINEL2_CATALOG = FOLDERPATH_SATELLITE + 'Sentinel-2/catalog.geojson'
+FILEPATH_DATACUBE_S2L1C_CATALOG = FOLDERPATH_DATACUBE_S2L1C + 'catalog.geojson'
+FILEPATH_DATACUBE_S2L1C_CONFIGURATIONS = FOLDERPATH_DATACUBE_S2L1C + 'configurations.json'
 
 
 def remotepath_to_localpath(
@@ -147,14 +48,14 @@ def download_intersecting_sentinel2_tiles_from_cluster(
     njobs:int = 4,
 ):
     catalog_filepath = remotepath_to_localpath(
-        remotepath = FILEPATH_SENTINEL2_CATALOG,
+        remotepath = FILEPATH_SATELLITE_SENTINEL2_CATALOG,
         remote_root_path = FOLDERPATH_SATELLITE,
         local_root_path = satellite_folderpath,
     )
 
-    download_file_from_cluster(
+    sshutils.download_file_from_cluster(
         sshcreds = sshcreds,
-        remotepath = FILEPATH_SENTINEL2_CATALOG,
+        remotepath = FILEPATH_SATELLITE_SENTINEL2_CATALOG,
         download_filepath = catalog_filepath,
         overwrite = overwrite_catalog,
     )
@@ -178,7 +79,7 @@ def download_intersecting_sentinel2_tiles_from_cluster(
         )
     )
 
-    download_successes = download_files_from_cluster(
+    download_successes = sshutils.download_files_from_cluster(
         sshcreds = sshcreds,
         remotepaths = band_filepaths_df['remotepath'],
         download_filepaths = band_filepaths_df['download_filepath'],
@@ -192,3 +93,110 @@ def download_intersecting_sentinel2_tiles_from_cluster(
 
     return band_filepaths_df
 
+
+def load_datacube_s2l1c_catalog(
+    sshcreds:sshcreds.SSHCredentials,
+    datacubes_folderpath:str,
+    overwrite:bool = False,
+) -> gpd.GeoDataFrame:
+    catalog_filepath = remotepath_to_localpath(
+        remotepath = FILEPATH_DATACUBE_S2L1C_CATALOG,
+        remote_root_path = FOLDERPATH_DATACUBE,
+        local_root_path = datacubes_folderpath,
+    )
+
+    sshutils.download_file_from_cluster(
+        sshcreds = sshcreds,
+        remotepath = FILEPATH_DATACUBE_S2L1C_CATALOG,
+        download_filepath = catalog_filepath,
+        overwrite = overwrite,
+    )
+
+    return gpd.read_file(catalog_filepath)
+
+
+def load_datacube_s2l1c_configurations(
+    sshcreds:sshcreds.SSHCredentials,
+    datacubes_folderpath:str,
+    overwrite:bool = False,
+) -> gpd.GeoDataFrame:
+    configs_filepath = remotepath_to_localpath(
+        remotepath = FILEPATH_DATACUBE_S2L1C_CONFIGURATIONS,
+        remote_root_path = FOLDERPATH_DATACUBE,
+        local_root_path = datacubes_folderpath,
+    )
+
+    sshutils.download_file_from_cluster(
+        sshcreds = sshcreds,
+        remotepath = FILEPATH_DATACUBE_S2L1C_CONFIGURATIONS,
+        download_filepath = configs_filepath,
+        overwrite = overwrite,
+    )
+
+    with open(configs_filepath) as h:
+        configs = json.load(h)
+
+    return configs
+
+
+def download_s2l1c_datacube(
+    sshcreds:sshcreds.SSHCredentials,
+    id:str,
+    datacubes_folderpath:str,
+    overwrite_catalog:bool = False,
+    overwrite:bool = False,
+):
+    catalog_gdf = load_datacube_s2l1c_catalog(
+        sshcreds = sshcreds,
+        datacubes_folderpath = datacubes_folderpath,
+        overwrite = overwrite_catalog,
+    )
+
+    if id not in set(catalog_gdf[create_s2l1c_datacube.COL_ID]):
+        msg = f'id={id} not present in the s2l1c catalog.'
+        if not overwrite_catalog:
+            msg += ' Perhaps try overwrite_catalog=True in case the catalog is out of date.'
+        raise KeyError(msg)
+
+    selected_catalog_gdf = catalog_gdf[
+        catalog_gdf[create_s2l1c_datacube.COL_ID] == id
+    ]
+
+    if selected_catalog_gdf.shape[0] != 1: # will not be 0 cause that case is covered.
+        raise ValueError(
+            'This was not supposed to happen. id is supposed to be unique. '
+            'Something is not correct with the catalog creation process. '
+            'Please resolve this ASAP.'
+        )
+
+    # selected_catalog_gdf should have only 1 element at this point.
+
+    remote_datacube_folderpath = selected_catalog_gdf[
+        create_s2l1c_datacube.COL_LOCAL_FOLDERPATH
+    ].to_list()[0]
+
+    files = selected_catalog_gdf[create_s2l1c_datacube.COL_FILES].to_list()[0].split(',')
+
+    download_filepaths = {}
+
+    for file in files:
+        # adding '/' cause the local_folderpath in catalog does not
+        # end with it
+        remotepath = remote_datacube_folderpath + '/' + file
+
+        _download_filepath = remotepath_to_localpath(
+            remotepath = remotepath,
+            remote_root_path = FOLDERPATH_DATACUBE,
+            local_root_path = datacubes_folderpath,
+        )
+
+        sshutils.download_file_from_cluster(
+            sshcreds = sshcreds,
+            remotepath = remotepath,
+            download_filepath = _download_filepath,
+            overwrite = overwrite,
+        )
+
+        download_filepaths[file] = _download_filepath
+    
+    return download_filepaths
