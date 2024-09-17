@@ -498,6 +498,7 @@ def update_catalog(
     config_id:int,
     datacube_folderpath:str,
     geometry_epsg_4326:shapely.Geometry,
+    force_update:bool = False,
 ):
     dcm = load_datacube_catalog_manager(
         datacube_catalog_filepath = datacube_catalog_filepath,
@@ -514,7 +515,7 @@ def update_catalog(
         COL_LOCAL_FOLDERPATH: os.path.abspath(datacube_folderpath),
         COL_FILES: [FILENAME_DATACUBE, FILENAME_METADATA, FILENAME_MEANSUNANGLE],
         COL_GEOMETRY: geometry_epsg_4326,
-    })
+    }, force_update = force_update)
     dcm.save()
 
 
@@ -677,6 +678,9 @@ def create_s2l1c_datacube_and_update_catalog(
         config_id = config_id,
         datacube_folderpath = datacube_folderpath,
         geometry_epsg_4326 = union_shape,
+        # force_update = True to update the last_update, 
+        # it's always set True since we reach this point only if overwrite
+        force_update = True,
     )
 
     if print_messages:

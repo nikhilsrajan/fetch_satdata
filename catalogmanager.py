@@ -109,6 +109,7 @@ class CatalogManager(object):
     def add(
         self,
         entry:dict,
+        force_update:bool = False,
     ):
         performed_update = False
 
@@ -151,7 +152,7 @@ class CatalogManager(object):
         
         performed_update = all(entry_modified_dict.values())
 
-        if performed_update:
+        if performed_update or force_update:
             self.catalog_gdf.loc[_id, COL_LAST_UPDATE] = CatalogManager.get_current_timestamp()
         
         return performed_update
