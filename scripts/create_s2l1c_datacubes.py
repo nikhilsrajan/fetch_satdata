@@ -428,30 +428,6 @@ if __name__ == '__main__':
     if max_compute > mp.cpu_count():
         raise ValueError(f'max_compute cannot exceed cpu_count of the machine (cpu_count = {mp.cpu_count()}).')
 
-    """
-    Writing only the implementation for --csv option
-
-    CSV currently has the following columns:
-    - s2gridid
-    - startdate
-    - enddate
-    - bands
-    - s2cloudless_chunksize
-    - mosaic_days
-    - cloud_threshold
-
-    And global settings:
-    - njobs
-    - max_compute
-    - if_missing_files
-    - overwrite
-    - add_new_config
-
-    Now to create list of CLI inputs ...
-    
-    Note: The CLI utilities to run in parallely the scripts via multithreading
-    would become its own module used by more pipelines.
-    """
     if filetype == 'geojson':
         """
         - write out geometries into the GEOM_DUMP_FOLDERPATH

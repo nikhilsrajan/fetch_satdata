@@ -3,6 +3,9 @@ Fetching satellite data (like duh).
 
 Requires: Python 3.10
 
+Documentation: https://docs.google.com/document/d/1p8PMAvoggr-aegwUBtVI-NI8M40hpBdRDYl1Mh1VIs4/edit?usp=sharing
+
+
 ## Setup
 
 1. Clone the repository including the submodules

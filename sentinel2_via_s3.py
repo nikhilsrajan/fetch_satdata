@@ -22,7 +22,7 @@ COL_LAST_UPDATE = cm.COL_LAST_UPDATE
 COL_FILES = cm.COL_FILES
 COL_S3URL = 's3url'
 COL_CLOUDCOVER = 'cloud_cover'
-COL_GEOMETRY = 'geometry'
+COL_SATELLITE = 'satellite'
 
 
 def update_catalog(
@@ -31,11 +31,13 @@ def update_catalog(
     download_filepaths:list[str],
     download_successes:list[bool],
     sentinel2_local_catalog_filepath:str,
+    satellite:str,
 ):
     catalog_manager = cm.CatalogManager(
         catalog_filepath = sentinel2_local_catalog_filepath,
         cols_dtype_dict = {
                           COL_ID: cm.DTYPE_STR,
+                   COL_SATELLITE: cm.DTYPE_STR,
                    COL_TIMESTAMP: cm.DTYPE_TIMESTAMP,
                        COL_S3URL: cm.DTYPE_STR,
             COL_LOCAL_FOLDERPATH: cm.DTYPE_STR,
@@ -65,7 +67,8 @@ def update_catalog(
         if parsed_s3_url['band_filename'] is not None:
             band_filename = parsed_s3_url['band_filename']
             parsed_band_filename = cdseutils.sentinel2.parse_band_filename(
-                sentinel2_band_filename=band_filename
+                sentinel2_band_filename=band_filename,
+                satellite = satellite,
             )
             local_filename = parsed_band_filename['band'] + parsed_band_filename['ext']
         elif parsed_s3_url['xml_filename'] is not None:
@@ -92,6 +95,7 @@ def update_catalog(
                            COL_FILES: id_to_download_files[_id],
                       COL_CLOUDCOVER: id_to_cloudcover[_id],
                         COL_GEOMETRY: id_to_geometry[_id],
+                       COL_SATELLITE: satellite,
             }
         )
     
@@ -104,6 +108,7 @@ def chunkwise_download_files_and_update_catalog(
     s3paths:list[cdseutils.mydataclasses.S3Path],
     download_filepaths:list[str],
     sentinel2_local_catalog_filepath:str,
+    satellite:str,
     chunksize = 4 * 25,
     overwrite:bool = False,
     logger:logging.Logger = None,
@@ -150,6 +155,7 @@ def chunkwise_download_files_and_update_catalog(
             download_filepaths = _download_filepaths,
             download_successes = _download_successes,
             sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
+            satellite = satellite,
         )
         print(
             f'Download status: {downloads_done} / {N}\n'
@@ -158,38 +164,25 @@ def chunkwise_download_files_and_update_catalog(
             f'- Overwrite: {download_overwrite_count}\n'
             f'- Failed: {download_failed_count}'
         )
-    
 
-def download_sentinel2_l1c_tiles(
+
+def download_sentinel2_tiles(
     cdse_creds:cdseutils.mydataclasses.Credentials,
     catalog_save_folderpath:str,
     root_download_folderpath:str,
     sentinel2_local_catalog_filepath:str,
-    bands = cdseutils.constants.Bands.Sentinel2.ALL,
+    collection:sentinelhub.DataCollection,
+    satellite:str,
+    bands:list[str],
     catalog_gdf:gpd.GeoDataFrame = None,
     roi_filepath:str = None,
     startdate:datetime.datetime = None,
     enddate:datetime.datetime = None,
     max_cloudcover_threshold:float = None,
-    upper_limit_for_number_of_tiles:int = 300,
+    upper_limit_for_number_of_tiles:int = 1,
     chunksize_for_download_and_update_catalog:int = 4 * 25,
 ):
-    """
-    Function to search the catalog for sentinel-2-l1c data for a give shape file saved
-    at roi_filepath, for a given daterange - startdate to enddate, and download the tiles
-    to a specified folderpath.
-
-    If catalog_gdf is specified, fetch_catalog operation is bypassed.
-
-    If max_cloudcover_threshold is not None, an additional mandatory column is added 'cloud_cover'.
-    
-    fetch_catalog function caches the results thus catalog_save_folderpath is a critical
-    parameter to reduce the number of api calls.
-    """
-
-    S2L1C = 'sentinel-2-l1c'
-
-    if sentinelhub.DataCollection.SENTINEL2_L1C.catalog_id != S2L1C:
+    if collection.catalog_id != satellite:
         raise ValueError(
             "When this code was written (2024-08-19), the assumption was that "
             "sentinelhub.DataCollection's catalog_id member variable always remain static. "
@@ -204,16 +197,23 @@ def download_sentinel2_l1c_tiles(
             f'have permission to write to {root_download_folderpath}.'
         )
     
-    invalid_sentinel2_bands = set(bands) - set(cdseutils.constants.Bands.Sentinel2.ALL)
+    if satellite == cdseutils.constants.Bands.S2L1C.NAME:
+        all_bands = cdseutils.constants.Bands.S2L1C.ALL
+    elif satellite == cdseutils.constants.Bands.S2L2A.NAME:
+        all_bands = cdseutils.constants.Bands.S2L2A.ALL
+    else:
+        raise NotImplementedError(f'satellite = {satellite}')
+
+    invalid_sentinel2_bands = set(bands) - set(all_bands)
     if len(invalid_sentinel2_bands) > 0:
-        raise ValueError(f'Invalid Sentinel-2 L1C bands requested to be downloaded: {list(invalid_sentinel2_bands)}')
+        raise ValueError(f'Invalid {satellite} bands requested to be downloaded: {list(invalid_sentinel2_bands)}')
 
     MUST_PRESENT_CATALOG_COLS = [
-        'id', 'timestamp', 's3url', 'geometry', 
+        COL_ID, COL_SATELLITE, COL_TIMESTAMP, COL_S3URL, COL_GEOMETRY,
     ]
 
     if max_cloudcover_threshold is not None:
-        MUST_PRESENT_CATALOG_COLS.append('cloud_cover')
+        MUST_PRESENT_CATALOG_COLS.append(COL_CLOUDCOVER)
 
     if not cdse_creds.is_sh_creds_defined():
         raise ValueError('cdse_creds does not have sh_clientid and sh_clientsecret defined.')
@@ -244,7 +244,7 @@ def download_sentinel2_l1c_tiles(
         catalog_gdf, results = cdseutils.utils.fetch_catalog(
             bboxes = bboxes,
             sh_creds = cdse_creds.sh_creds,
-            collection = sentinelhub.DataCollection.SENTINEL2_L1C,
+            collection = collection,
             startdate = startdate,
             enddate = enddate,
             cache_folderpath = catalog_save_folderpath,
@@ -270,12 +270,11 @@ def download_sentinel2_l1c_tiles(
     if max_cloudcover_threshold is not None:
         catalog_gdf = catalog_gdf[catalog_gdf['cloud_cover'] <= max_cloudcover_threshold]
 
-
     number_of_tiles_to_download = catalog_gdf.shape[0]
     if number_of_tiles_to_download > upper_limit_for_number_of_tiles:
         raise ValueError(
             f'Are you sure you wish to download {number_of_tiles_to_download} image sets?\n'
-            f'This is roughly {number_of_tiles_to_download * 700 / 1000} GB of download. '
+            f'This is roughly {number_of_tiles_to_download * 725 / 1000} GB of download. '
             f'This exceeds upper_limit_for_number_of_tiles={upper_limit_for_number_of_tiles}.\n'
             'Kindly discuss with your team before you go ahead.'
         )
@@ -287,6 +286,7 @@ def download_sentinel2_l1c_tiles(
         s3_creds = cdse_creds.s3_creds,
         root_folderpath = root_download_folderpath,
         bands = bands,
+        satellite = satellite,
     )
 
     print(f'Downloading {len(s3paths)} files:')
@@ -297,10 +297,83 @@ def download_sentinel2_l1c_tiles(
         s3paths = s3paths,
         download_filepaths = download_filepaths,
         sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
+        satellite = satellite,
         chunksize = chunksize_for_download_and_update_catalog,
         overwrite = False,
         logger = None,
     )
 
     return successful_download_count, len(s3paths)
+
+
+def download_sentinel2_l1c_tiles(
+    cdse_creds:cdseutils.mydataclasses.Credentials,
+    catalog_save_folderpath:str,
+    root_download_folderpath:str,
+    sentinel2_local_catalog_filepath:str,
+    bands = cdseutils.constants.Bands.S2L1C.ALL, # changes with satellite
+    catalog_gdf:gpd.GeoDataFrame = None,
+    roi_filepath:str = None,
+    startdate:datetime.datetime = None,
+    enddate:datetime.datetime = None,
+    max_cloudcover_threshold:float = None,
+    upper_limit_for_number_of_tiles:int = 1,
+    chunksize_for_download_and_update_catalog:int = 4 * 25,
+):
+    # changes with satellite
+    SATELLITE = cdseutils.constants.Bands.S2L1C.NAME
+    COLLECTION = sentinelhub.DataCollection.SENTINEL2_L1C
+
+    return download_sentinel2_tiles(
+        cdse_creds = cdse_creds,
+        catalog_save_folderpath = catalog_save_folderpath,
+        root_download_folderpath = root_download_folderpath,
+        sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
+        collection = COLLECTION,
+        satellite = SATELLITE,
+        bands = bands,
+        catalog_gdf = catalog_gdf,
+        roi_filepath = roi_filepath,
+        startdate = startdate,
+        enddate = enddate,
+        max_cloudcover_threshold = max_cloudcover_threshold,
+        upper_limit_for_number_of_tiles = upper_limit_for_number_of_tiles,
+        chunksize_for_download_and_update_catalog = chunksize_for_download_and_update_catalog,
+    )
+
+
+def download_sentinel2_l2a_tiles(
+    cdse_creds:cdseutils.mydataclasses.Credentials,
+    catalog_save_folderpath:str,
+    root_download_folderpath:str,
+    sentinel2_local_catalog_filepath:str,
+    bands = cdseutils.constants.Bands.S2L2A.ALL, # changes with satellite
+    catalog_gdf:gpd.GeoDataFrame = None,
+    roi_filepath:str = None,
+    startdate:datetime.datetime = None,
+    enddate:datetime.datetime = None,
+    max_cloudcover_threshold:float = None,
+    upper_limit_for_number_of_tiles:int = 1,
+    chunksize_for_download_and_update_catalog:int = 4 * 25,
+):
+    # changes with satellite
+    SATELLITE = cdseutils.constants.Bands.S2L2A.NAME
+    COLLECTION = sentinelhub.DataCollection.SENTINEL2_L2A
+
+    return download_sentinel2_tiles(
+        cdse_creds = cdse_creds,
+        catalog_save_folderpath = catalog_save_folderpath,
+        root_download_folderpath = root_download_folderpath,
+        sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
+        collection = COLLECTION,
+        satellite = SATELLITE,
+        bands = bands,
+        catalog_gdf = catalog_gdf,
+        roi_filepath = roi_filepath,
+        startdate = startdate,
+        enddate = enddate,
+        max_cloudcover_threshold = max_cloudcover_threshold,
+        upper_limit_for_number_of_tiles = upper_limit_for_number_of_tiles,
+        chunksize_for_download_and_update_catalog = chunksize_for_download_and_update_catalog,
+    )
 
