@@ -341,6 +341,7 @@ def check_if_datacube_already_present(
         catalog_mentioned_filepaths = [
             os.path.join(folderpath, file) for file in files
         ]
+        # checking if all files mentioned in the catalog exists
         if all(os.path.exists(filepath) for filepath in catalog_mentioned_filepaths):
             return True
         else:
