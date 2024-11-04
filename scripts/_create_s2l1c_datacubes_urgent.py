@@ -206,7 +206,7 @@ if __name__ == '__main__':
     parser.add_argument('startdate', help='YYYY-MM-DD')
     parser.add_argument('enddate', help='YYYY-MM-DD')
     parser.add_argument('bands', default='all', help='[default = all] all, or bands comma separated B02,B03,B04,B08')
-    parser.add_argument('--njobs', default=4, help='[default = 4] Number of cores to use.')
+    parser.add_argument('-j', '--njobs', default=4, help='[default = 4] Number of cores to use.')
     parser.add_argument('-s2c', '--s2cloudless', action='store', metavar='CHUNKSIZE', required=False, help='Whether to run s2cloudless and if so at what chunk size.')
     parser.add_argument('-m', '--mosaic', action='store', required=False, help='[suggested = 20] Whether to perform median mosaicing and if so in intervals of how many days.')
     parser.add_argument('-c', '--cloud-threshold', action='store', default=0, required=False, help='The probabiliy threshold at and above which the pixel is considered cloud. Must be from 0 to 1.')
@@ -220,7 +220,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    roi_name = args.roi_name
+    # roi_name = args.roi_name
     datacube_catalog_filepath = args.datacube_catalog
     log_filepath = args.log_file
 
