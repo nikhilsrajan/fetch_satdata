@@ -251,6 +251,41 @@ def apply_cloud_mask(
     return datacube, metadata
 
 
+def apply_cloud_mask_scl(
+    datacube:np.ndarray,
+    metadata:dict,
+    mask_classes:list[int],
+    bands_to_modify:list[str]=None,
+    mask_value = 0,
+):
+    band_indices = {band:index for index,band in enumerate(metadata['bands'])}
+
+    if 'SCL' not in band_indices.keys():
+        raise exceptions.DatacubeException(f'SCL band not present in datacube')
+    
+    if bands_to_modify is None:
+        bands_to_modify = list(band_indices.keys())
+        bands_to_modify.remove('SCL')
+    
+    present_bands_to_modify = set(bands_to_modify) & set(band_indices.keys())
+
+    band_indices_to_modify = [
+        band_indices[bandname] for bandname in present_bands_to_modify
+    ]
+
+    scl_index = band_indices['SCL']
+
+    scl = datacube[:,:,:,scl_index]
+    selected_bands = datacube[:,:,:,band_indices_to_modify]
+
+    selected_bands[np.where(np.isin(scl, mask_classes))] = mask_value
+
+    datacube[:,:,:,band_indices_to_modify] = selected_bands
+
+    return datacube, metadata
+
+
+
 def drop_bands(
     datacube:np.ndarray,
     metadata:dict,

@@ -48,6 +48,7 @@ def get_unary_gdf(
 
 def filter_catalog(
     catalog_filepath:str,
+    satellite:str, # catalog can contain multiple satellites
     shapes_gdf:gpd.GeoDataFrame,
     startdate:datetime,
     enddate:datetime,
@@ -58,6 +59,8 @@ def filter_catalog(
     - geometry
     """
     catalog_gdf = gpd.read_file(catalog_filepath)
+
+    catalog_gdf = catalog_gdf[catalog_gdf['satellite'] == satellite]
 
     union_shape_gdf = get_unary_gdf(shapes_gdf=shapes_gdf, crs=catalog_gdf.crs)
     union_shape = union_shape_gdf['geometry'][0]
@@ -82,6 +85,7 @@ def filter_catalog(
 
 def query_catalog_stats(
     catalog_filepath:str,
+    satellite:str, # catalog can contain multiple satellites
     shapes_gdf:gpd.GeoDataFrame,
     startdate:datetime,
     enddate:datetime,
@@ -98,6 +102,7 @@ def query_catalog_stats(
 
     filtered_catalog_gdf = filter_catalog(
         catalog_filepath = catalog_filepath,
+        satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
@@ -135,6 +140,7 @@ def query_catalog_stats(
 def check_if_there_are_files_missing(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
+    satellite:str, # catalog can contain multiple satellites
     startdate:datetime.datetime,
     enddate:datetime.datetime,
     files:list[str],
@@ -142,6 +148,7 @@ def check_if_there_are_files_missing(
 ):
     stats = query_catalog_stats(
         catalog_filepath = catalog_filepath,
+        satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
@@ -207,6 +214,7 @@ def check_if_there_are_files_missing(
 def get_intersecting_band_filepaths(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
+    satellite:str, # catalog can contain multiple satellites
     startdate:datetime,
     enddate:datetime,
     bands:list[str],
@@ -221,6 +229,7 @@ def get_intersecting_band_filepaths(
     """
     catalog_gdf = filter_catalog(
         catalog_filepath = catalog_filepath,
+        satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
@@ -301,6 +310,7 @@ def change_parent_folderpath(
 def crop_and_reproject(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
+    satellite:str, # catalog can contain multiple satellites
     startdate:datetime.datetime,
     enddate:datetime.datetime,
     bands:list[str],
@@ -319,6 +329,7 @@ def crop_and_reproject(
         startdate = startdate,
         enddate = enddate,
         catalog_filepath = catalog_filepath,
+        satellite = satellite,
         bands = bands,
         ext = ext,
     )
@@ -560,6 +571,7 @@ def load_datacube(folderpath:str)->tuple[np.ndarray, dict]:
 
 def missing_files_action(
     catalog_filepath:str,
+    satellite:str, # catalog can contain multiple satellites
     shapes_gdf:gpd.GeoDataFrame,
     startdate:datetime.datetime,
     enddate:datetime.datetime,
@@ -578,6 +590,7 @@ def missing_files_action(
     query_stats, missing_flags, msg = \
     check_if_there_are_files_missing(
         catalog_filepath = catalog_filepath,
+        satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
@@ -600,6 +613,7 @@ def missing_files_action(
 def create_datacube(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
+    satellite:str, # catalog can contain multiple satellites
     startdate:datetime.datetime,
     enddate:datetime.datetime,
     bands:list[str],
@@ -619,6 +633,7 @@ def create_datacube(
 ):  
     missing_files_action(
         catalog_filepath = catalog_filepath,
+        satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
@@ -633,6 +648,7 @@ def create_datacube(
     band_filepaths_df = crop_and_reproject(
         shapes_gdf = shapes_gdf,
         catalog_filepath = catalog_filepath,
+        satellite = satellite,
         startdate = startdate,
         enddate = enddate,
         bands = bands,

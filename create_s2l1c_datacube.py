@@ -10,6 +10,7 @@ import create_datacube
 import extract_metadata
 import datacube_ops
 import exceptions
+import cdseutils.constants
 
 
 """
@@ -40,11 +41,18 @@ FILENAME_DATACUBE = 'datacube.npy'
 FILENAME_METADATA = 'metadata.pickle.npy'
 FILENAME_MEANSUNANGLE = 'mean_sun_angle.csv'
 
-REF_BAND_ORDER = [
-    'B08', 'B04', 'B03', 'B02', # 10m
-    'B8A', 'B11', 'B12', 'B05', 'B06', 'B07', # 20m
-    'B01', 'B09', 'B10', # 60m
-]
+REF_BAND_ORDER = {
+    cdseutils.constants.Bands.S2L1C.NAME: [
+        'B08', 'B04', 'B03', 'B02', # 10m
+        'B8A', 'B11', 'B12', 'B05', 'B06', 'B07', # 20m
+        'B01', 'B09', 'B10', # 60m
+    ],
+    cdseutils.constants.Bands.S2L2A.NAME: [
+        'B08', 'B02', 'B03', 'B04', # 10m
+        'B01', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'SCL', # 20m
+        'B09', # 60m
+    ]
+}
 
 DATACUBE_ALREADY_EXISTS = 'return::datacube-already-exists'
 DATACUBE_CREATED = 'return::datacube-created'
@@ -405,11 +413,12 @@ def create_s2l1c_datacube(
     print_messages:bool = True,
     if_missing_files = 'raise_error',
 ):
+    SATELLITE = cdseutils.constants.Bands.S2L1C.NAME
     NODATA = 0 # since the script is hardcoded for sentinel-2-l1c
     EXT = '.jp2' # since the script is hardcoded for sentinel-2-l1c
     MAX_TIMEDELTA_DAYS = 5 # since the script is hardcoded for sentinel-2-l1c
 
-    for ref_band_candidate in REF_BAND_ORDER:
+    for ref_band_candidate in REF_BAND_ORDER[cdseutils.constants.Bands.S2L1C.NAME]:
         if ref_band_candidate in bands:
             resampling_ref_band = ref_band_candidate
             break
@@ -419,6 +428,7 @@ def create_s2l1c_datacube(
     create_datacube.create_datacube(
         shapes_gdf = shapes_gdf,
         catalog_filepath = satellite_catalog_filepath,
+        satellite = SATELLITE,
         startdate = startdate,
         enddate = enddate,
         bands = bands,
@@ -441,6 +451,7 @@ def create_s2l1c_datacube(
     extract_metadata.extract_s2l1c_mean_sun_angle(
         shapes_gdf = shapes_gdf,
         catalog_filepath = satellite_catalog_filepath,
+        satellite = SATELLITE,
         startdate = startdate,
         enddate = enddate,
         print_messages = print_messages,
@@ -463,6 +474,95 @@ def create_s2l1c_datacube(
         ))
         datacube_ops_sequence.append((
             datacube_ops.drop_bands, dict(bands_to_drop = ['CMK'])
+        ))
+        datacube_ops_sequence.append((
+            datacube_ops.median_mosaic, dict(startdate = startdate,
+                                             enddate = enddate,
+                                             mosaic_days = mosaic_days,)
+        ))
+
+    run_datacube_ops(
+        folderpath = export_folderpath,
+        sequence = datacube_ops_sequence,
+        print_messages = print_messages,
+    )
+
+
+def create_s2l2a_datacube(
+    shapes_gdf:gpd.GeoDataFrame,
+    export_folderpath:str,
+    satellite_catalog_filepath:str,
+    startdate:datetime.datetime,
+    enddate:datetime.datetime,
+    bands:list[str],
+    njobs:int,
+    mosaic_days = None,
+    scl_mask_classes:list[int] = [
+        0,  # No Data (Missing data)
+        1,  # Saturated or defective pixel
+        3,  # Cloud shadows
+        7,  # Unclassified
+        8,  # Cloud medium probability
+        9,  # Cloud high probability
+        10, # Thin cirrus
+    ],
+    print_messages:bool = True,
+    if_missing_files = 'raise_error',
+):
+    SATELLITE = cdseutils.constants.Bands.S2L2A.NAME
+    NODATA = 0 # since the script is hardcoded for sentinel-2-l2a
+    EXT = '.jp2' # since the script is hardcoded for sentinel-2-l2a
+    MAX_TIMEDELTA_DAYS = 5 # since the script is hardcoded for sentinel-2-l2a
+
+    for ref_band_candidate in REF_BAND_ORDER[cdseutils.constants.Bands.S2L2A.NAME]:
+        if ref_band_candidate in bands:
+            resampling_ref_band = ref_band_candidate
+            break
+
+    working_dir = os.path.join(export_folderpath, 'temp')
+
+    create_datacube.create_datacube(
+        shapes_gdf = shapes_gdf,
+        catalog_filepath = satellite_catalog_filepath,
+        satellite = SATELLITE,
+        startdate = startdate,
+        enddate = enddate,
+        bands = bands,
+        out_folderpath = export_folderpath,
+        working_dir = working_dir,
+        nodata = NODATA,
+        njobs = njobs,
+        resampling_ref_band = resampling_ref_band,
+        delete_working_dir = True,
+        satellite_folderpath = None,
+        print_messages = print_messages,
+        ext = EXT,
+        if_missing_files = if_missing_files,
+        max_timedelta_days = MAX_TIMEDELTA_DAYS,
+    )
+
+    if print_messages:
+        print('Extracting mean_sun_angle:')
+    mean_sun_angle_df = \
+    extract_metadata.extract_s2l1c_mean_sun_angle(
+        shapes_gdf = shapes_gdf,
+        catalog_filepath = satellite_catalog_filepath,
+        satellite = SATELLITE,
+        startdate = startdate,
+        enddate = enddate,
+        print_messages = print_messages,
+    )
+    mean_sun_angle_filepath = os.path.join(export_folderpath, FILENAME_MEANSUNANGLE)
+    mean_sun_angle_df.to_csv(mean_sun_angle_filepath, index=False)
+
+    datacube_ops_sequence = []
+    
+    if mosaic_days is not None:
+        datacube_ops_sequence.append((
+            datacube_ops.apply_cloud_mask_scl, dict(mask_classes = scl_mask_classes)
+        ))
+        datacube_ops_sequence.append((
+            datacube_ops.drop_bands, dict(bands_to_drop = ['SCL'])
         ))
         datacube_ops_sequence.append((
             datacube_ops.median_mosaic, dict(startdate = startdate,

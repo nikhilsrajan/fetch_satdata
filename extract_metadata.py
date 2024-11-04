@@ -12,6 +12,7 @@ import exceptions
 def extract_s2l1c_mean_sun_angle(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
+    satellite:str, # catalog can contain multiple satellites
     startdate:datetime.datetime,
     enddate:datetime.datetime,
     print_messages:bool = True,
@@ -20,6 +21,7 @@ def extract_s2l1c_mean_sun_angle(
 
     catalog_gdf = create_datacube.filter_catalog(
         catalog_filepath = catalog_filepath,
+        satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
