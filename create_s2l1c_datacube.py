@@ -680,6 +680,8 @@ def create_s2l1c_datacube_and_update_catalog(
     if_new_config = 'raise_error',
     overwrite:bool = False,
 ):
+    SATELLITE = cdseutils.constants.Bands.S2L1C.NAME
+
     config = Configuration(
         cloud_threshold = cloud_threshold,
         mosaic_days = mosaic_days,
@@ -700,6 +702,7 @@ def create_s2l1c_datacube_and_update_catalog(
     query_stats, missing_flags = \
     create_datacube.missing_files_action(
         catalog_filepath = satellite_catalog_filepath,
+        satellite = SATELLITE,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
