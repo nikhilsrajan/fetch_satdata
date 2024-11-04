@@ -280,7 +280,7 @@ if __name__ == '__main__':
         print(f'datacube_catalog_filepath: {datacube_catalog_filepath}')
         print(f'filepath: {roi_filepath}')
         print(f'roi_name_col: {roi_name_col}')
-        print(f'roi: {args.roi}')
+        # print(f'roi: {args.roi}')
         print(f'startdate: {args.startdate}')
         print(f'enddate: {args.enddate}')
         print(f'bands: {bands}')
