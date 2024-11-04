@@ -732,7 +732,11 @@ def create_datacube(
         'timestamps': timestamps,
         'ids': ids,
         'bands': bands,
-        'data_shape_desc': ('timestamps|ids', 'height', 'width', 'bands')
+        'data_shape_desc': ('timestamps|ids', 'height', 'width', 'bands'),
+        'geometry': {
+            'shape': shapes_gdf['geometry'].to_list(),
+            'crs': shapes_gdf.crs,
+        }
     }
 
     if delete_working_dir:
