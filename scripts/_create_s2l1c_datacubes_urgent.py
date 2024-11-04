@@ -153,6 +153,7 @@ def main(
 ):
     N = shapes_gdf.shape[0]
     i = 0
+    ret_codes = []
     for index, row in shapes_gdf.iterrows():
         start_time = time.time()
         i += 1
@@ -163,7 +164,7 @@ def main(
         _shapes_gdf = gpd.GeoDataFrame({
             'geometry': [geom]
         }, crs=shapes_gdf.crs)
-        main_single(
+        ret_code = main_single(
             roi_name = roi_name,
             shapes_gdf = _shapes_gdf,
             startdate = startdate,
@@ -183,8 +184,9 @@ def main(
         end_time = time.time()
         if print_messages:
             print(f'--- t_elapsed: {round(end_time - start_time, 2)} secs ---')
+        ret_codes.append(ret_code)
     
-    return ret_code
+    return ret_codes
 
 
 if __name__ == '__main__':
@@ -306,7 +308,7 @@ if __name__ == '__main__':
         if log_filepath is not None:
             print(f'log-file: {log_filepath}')
 
-    ret_code = main(
+    ret_codes = main(
         roi_name_col = roi_name_col,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
@@ -328,6 +330,8 @@ if __name__ == '__main__':
 
     if print_messages:
         print(f'--- t_elapsed: {round(end_time - start_time, 2)} secs ---')
+
+    ret_code = RET_SUCCESS if sum(ret_codes) == 0 else RET_FAILED
 
     exit(ret_code)
 
