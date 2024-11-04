@@ -62,9 +62,6 @@ def main_single(
     overwrite:bool = False,
     log_filepath:str = None,
 ):
-    if print_messages:
-        print('--- run ---')
-
     ret_code = RET_FAILED
 
     entry = {
@@ -154,8 +151,13 @@ def main(
     overwrite:bool = False,
     log_filepath:str = None,
 ):
-
+    N = shapes_gdf.shape[0]
+    i = 0
     for index, row in shapes_gdf.iterrows():
+        start_time = time.time()
+        i += 1
+        if print_messages:
+            print(f'--- run --- [{i} / {N}]')
         roi_name = row[roi_name_col]
         geom = row['geometry']
         _shapes_gdf = gpd.GeoDataFrame({
@@ -178,6 +180,9 @@ def main(
             overwrite = overwrite,
             log_filepath = log_filepath,
         )
+        end_time = time.time()
+        if print_messages:
+            print(f'--- t_elapsed: {round(end_time - start_time, 2)} secs ---')
     
     return ret_code
 
