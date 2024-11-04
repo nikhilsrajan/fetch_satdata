@@ -293,6 +293,13 @@ def get_datacube_folderpath(
     actual_enddate:datetime.datetime,
     config_id:int,
 ):
+    """
+    Note: 
+    ----
+    roi_name can contain '_', in which case while parsing the datacube_id,
+    split by '_' and collected from back since time and config id will always be 
+    the last elements.
+    """
     return os.path.join(
         root_folderpath,
         roi_name,
