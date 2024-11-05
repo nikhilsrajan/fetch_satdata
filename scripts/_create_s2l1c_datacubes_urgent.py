@@ -245,7 +245,9 @@ if __name__ == '__main__':
     
     enddate = datetime.datetime.strptime(args.enddate, '%Y-%m-%d')
 
-    override_gap_days = args.override_gap_days
+    override_gap_days = None
+    if args.override_gap_days is not None:
+        override_gap_days = int(args.override_gap_days)
 
     if args.bands == 'all':
         bands = [
