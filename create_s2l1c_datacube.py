@@ -708,10 +708,11 @@ def create_s2l1c_datacube_and_update_catalog(
         configs_filepath = configs_filepath,
     )
 
-    if override_gap_days is None:
-        max_timedelta_days = MAX_TIMEDELTA_DAYS
-    else:
+    max_timedelta_days = MAX_TIMEDELTA_DAYS
+    if override_gap_days is not None:
         max_timedelta_days = override_gap_days
+
+    print(f'DEBUG: max_timedelta_days = {max_timedelta_days}')
 
     query_stats, missing_flags = \
     create_datacube.missing_files_action(

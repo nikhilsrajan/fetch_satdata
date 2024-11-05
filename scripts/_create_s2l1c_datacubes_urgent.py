@@ -316,6 +316,8 @@ if __name__ == '__main__':
             print(f'if_new_config: add')
         if log_filepath is not None:
             print(f'log-file: {log_filepath}')
+        if override_gap_days is not None:
+            print(f'override_gap_days: {override_gap_days}')
 
     ret_codes = main(
         roi_name_col = roi_name_col,
