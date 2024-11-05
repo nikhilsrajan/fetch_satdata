@@ -419,6 +419,7 @@ def create_s2l1c_datacube(
     mosaic_days = None,
     print_messages:bool = True,
     if_missing_files = 'raise_error',
+    max_timedelta_days:int = None,
 ):
     SATELLITE = cdseutils.constants.Bands.S2L1C.NAME
     NODATA = 0 # since the script is hardcoded for sentinel-2-l1c
@@ -431,6 +432,9 @@ def create_s2l1c_datacube(
             break
 
     working_dir = os.path.join(export_folderpath, 'temp')
+
+    if max_timedelta_days is None:
+        max_timedelta_days = MAX_TIMEDELTA_DAYS
 
     create_datacube.create_datacube(
         shapes_gdf = shapes_gdf,
@@ -449,7 +453,7 @@ def create_s2l1c_datacube(
         print_messages = print_messages,
         ext = EXT,
         if_missing_files = if_missing_files,
-        max_timedelta_days = MAX_TIMEDELTA_DAYS,
+        max_timedelta_days = max_timedelta_days,
     )
 
     if print_messages:
@@ -778,6 +782,7 @@ def create_s2l1c_datacube_and_update_catalog(
         mosaic_days = mosaic_days,
         print_messages = print_messages,
         if_missing_files = if_missing_files,
+        max_timedelta_days = max_timedelta_days,
     )
 
     union_shape_gdf = create_datacube.get_unary_gdf(shapes_gdf=shapes_gdf, 
