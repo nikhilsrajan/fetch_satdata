@@ -285,7 +285,6 @@ def apply_cloud_mask_scl(
     return datacube, metadata
 
 
-
 def drop_bands(
     datacube:np.ndarray,
     metadata:dict,
@@ -299,3 +298,25 @@ def drop_bands(
     metadata['bands'] = bands_to_keep
 
     return datacube, metadata
+
+
+def area_median(
+    datacube:np.ndarray,
+    metadata:dict,
+    mask_value:int = 0,
+):
+    dtype = datacube.dtype
+
+    n_ts, height, width, n_b = datacube.shape
+
+    datacube = datacube.astype(float)
+    datacube[np.where(datacube==mask_value)] = np.nan
+
+    mosaiced_datacube = np.expand_dims(np.nanmedian(datacube, axis=(1,2)), axis=(1,2))
+    mosaiced_datacube[np.isnan(mosaiced_datacube)] = mask_value
+    mosaiced_datacube = mosaiced_datacube.astype(dtype)
+
+    mosaiced_metadata = copy.deepcopy(metadata)
+    mosaiced_metadata['previous_height_width'] = (height, width)
+
+    return mosaiced_datacube, mosaiced_metadata

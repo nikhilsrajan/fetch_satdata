@@ -686,8 +686,10 @@ def create_s2l1c_datacube_and_update_catalog(
     ext:str = '.jp2',
     if_new_config = 'raise_error',
     overwrite:bool = False,
+    override_gap_days:int = None,
 ):
     SATELLITE = cdseutils.constants.Bands.S2L1C.NAME
+    MAX_TIMEDELTA_DAYS = 5 # hard-coded for sentinel-2
 
     config = Configuration(
         cloud_threshold = cloud_threshold,
@@ -706,6 +708,11 @@ def create_s2l1c_datacube_and_update_catalog(
         configs_filepath = configs_filepath,
     )
 
+    if override_gap_days is None:
+        max_timedelta_days = MAX_TIMEDELTA_DAYS
+    else:
+        max_timedelta_days = override_gap_days
+
     query_stats, missing_flags = \
     create_datacube.missing_files_action(
         catalog_filepath = satellite_catalog_filepath,
@@ -716,7 +723,7 @@ def create_s2l1c_datacube_and_update_catalog(
         bands = bands,
         if_missing_files = if_missing_files,
         ext = ext,
-        max_timedelta_days = 5, # hard-coded for sentinel-2
+        max_timedelta_days = max_timedelta_days,
     )
 
     actual_startdate = query_stats['timestamp_range'][0]

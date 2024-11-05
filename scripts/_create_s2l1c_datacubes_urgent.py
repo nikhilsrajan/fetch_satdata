@@ -61,6 +61,7 @@ def main_single(
     if_new_config:str = 'raise_error', # by default left as raise_error as create_s2l1c_datacubes.py should have created them already.
     overwrite:bool = False,
     log_filepath:str = None,
+    override_gap_days:int = None,
 ):
     ret_code = RET_FAILED
 
@@ -98,6 +99,7 @@ def main_single(
             if_missing_files = if_missing_files,
             if_new_config = if_new_config,
             overwrite = overwrite,
+            override_gap_days = override_gap_days,
         )
         if ret == create_s2l1c_datacube.DATACUBE_CREATED:
             entry.update({'status': 'success', 'type':'new'})
@@ -150,6 +152,7 @@ def main(
     if_new_config:str = 'raise_error', # by default left as raise_error as create_s2l1c_datacubes.py should have created them already.
     overwrite:bool = False,
     log_filepath:str = None,
+    override_gap_days:int = None,
 ):
     N = shapes_gdf.shape[0]
     i = 0
@@ -180,6 +183,7 @@ def main(
             if_new_config = if_new_config,
             overwrite = overwrite,
             log_filepath = log_filepath,
+            override_gap_days = override_gap_days,
         )
         end_time = time.time()
         if print_messages:
@@ -193,7 +197,7 @@ if __name__ == '__main__':
     start_time = time.time()
 
     parser = argparse.ArgumentParser(
-        prog = 'python _create_s2l1c_datacube.py',
+        prog = 'python _create_s2l1c_datacubes_urgent.py',
         description = (
             'THIS SCRIPT IS NOT MEANT TO BE USED BY A USER. '
             'THIS IS A CHILD SCRIPT FOR create_s2l1c_datacubes.py '
@@ -224,6 +228,7 @@ if __name__ == '__main__':
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing datacube.')
     parser.add_argument('--add-new-config', action='store_true', help='To allow addition of new config.')
     parser.add_argument('--log-file', action='store', required=False, help='Log file where the status of the different runs would be appended to.')
+    parser.add_argument('--override-gap-days', action='store', required=False, help='Override the permitted time gap.')
 
     args = parser.parse_args()
 
@@ -239,6 +244,8 @@ if __name__ == '__main__':
     startdate = datetime.datetime.strptime(args.startdate, '%Y-%m-%d')
     
     enddate = datetime.datetime.strptime(args.enddate, '%Y-%m-%d')
+
+    override_gap_days = args.override_gap_days
 
     if args.bands == 'all':
         bands = [
@@ -324,6 +331,7 @@ if __name__ == '__main__':
         overwrite = overwrite,
         if_new_config = if_new_config,
         log_filepath = log_filepath,
+        override_gap_days = override_gap_days,
     )
     
     end_time = time.time()
