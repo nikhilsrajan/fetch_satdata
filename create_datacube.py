@@ -146,6 +146,8 @@ def check_if_there_are_files_missing(
     files:list[str],
     max_timedelta_days:int = 5,
 ):
+    print(f'debug -- max_timedelta_days = {max_timedelta_days}')
+
     stats = query_catalog_stats(
         catalog_filepath = catalog_filepath,
         satellite = satellite,
