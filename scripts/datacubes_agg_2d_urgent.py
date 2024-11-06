@@ -93,11 +93,12 @@ if __name__ == '__main__':
             raise ValueError(f'shape mismatch -- last_shape={last_shape}, cur_shape={datacube_2d.shape}')
         
         datacubes_2d_list.append(datacube_2d)
+        del datacube_2d
     
     datacubes_2d = np.stack(datacubes_2d_list, axis=0)
     datacube_ids = np.array(selected_datacube_ids)
 
     os.makedirs(export_folderpath, exist_ok=True)
 
-    np.save(os.path.join(export_folderpath, 'data.npy'), datacube_2d)
+    np.save(os.path.join(export_folderpath, 'data.npy'), datacubes_2d)
     np.save(os.path.join(export_folderpath, 'ids.npy'), datacube_ids)
