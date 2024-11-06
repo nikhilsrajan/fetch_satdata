@@ -307,6 +307,30 @@ def change_parent_folderpath(
     )
 
 
+def check_if_shape_overlaps_raster(
+    raster_filepath:str,
+    shapes_gdf:gpd.GeoDataFrame,
+    all_touched:bool = True,
+    nodata = 0,
+):
+    dst_filepath = rsutils.utils.add_epochs_prefix(
+        filepath=raster_filepath, prefix='temp'
+    )
+    try:
+        rsutils.modify_images.crop(
+            src_filepath = raster_filepath,
+            dst_filepath = dst_filepath,
+            shapes_gdf = shapes_gdf,
+            all_touched = all_touched,
+            nodata = nodata,
+        )
+    except ValueError as e:
+        return False
+    
+    os.remove(dst_filepath)
+    return True
+
+
 def crop_and_reproject(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
@@ -323,6 +347,8 @@ def crop_and_reproject(
     print_messages:bool = True,
     ext:str = '.jp2',
 ):
+    ALL_TOUCHED = True
+
     band_filepaths_df = \
     get_intersecting_band_filepaths(
         shapes_gdf = shapes_gdf,
@@ -333,6 +359,18 @@ def crop_and_reproject(
         bands = bands,
         ext = ext,
     )
+
+    band_filepaths_df['overlaps'] = \
+    band_filepaths_df['filepath'].apply(
+        lambda x: check_if_shape_overlaps_raster(
+            raster_filepath = x,
+            shapes_gdf = shapes_gdf,
+            nodata = nodata,
+            all_touched = ALL_TOUCHED,
+        )
+    )
+
+    band_filepaths_df = band_filepaths_df[band_filepaths_df['overlaps']]
 
     if band_filepaths_df.shape[0] == 0:
         raise exceptions.DatacubeException(
@@ -352,9 +390,9 @@ def crop_and_reproject(
     os.makedirs(out_folderpath, exist_ok=True)
 
     sequence = [
-        (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
+        (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=ALL_TOUCHED)),
         (rsutils.modify_images.reproject, dict(dst_crs=dst_crs)),
-        (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True)),
+        (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=ALL_TOUCHED)),
     ]
 
     if satellite_folderpath is not None:
