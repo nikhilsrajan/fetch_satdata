@@ -12,6 +12,7 @@ import tqdm
 import numpy as np
 import shutil
 import warnings
+import functools
 
 import rsutils.modify_images
 import rsutils.utils
@@ -331,6 +332,34 @@ def check_if_shape_overlaps_raster(
     return True
 
 
+def check_if_shape_overlaps_raster_parallel(
+    raster_filepaths:list[str],
+    shapes_gdf:gpd.GeoDataFrame,
+    all_touched:bool = True,
+    nodata = 0,
+    njobs:int = 1,
+    print_messages:bool = True,
+):
+    check_if_shape_overlaps_raster_partial = \
+    functools.partial(
+        check_if_shape_overlaps_raster,
+        shapes_gdf = shapes_gdf,
+        all_touched = all_touched,
+        nodata = nodata,
+    )
+
+    with mp.Pool(njobs) as p:
+        if print_messages:
+            overlaps = list(tqdm.tqdm(
+                p.imap(check_if_shape_overlaps_raster_partial, raster_filepaths), 
+                total=len(raster_filepaths)
+            ))
+        else:
+            overlaps = list(p.imap(check_if_shape_overlaps_raster_partial, raster_filepaths))
+        
+    return overlaps
+
+
 def crop_and_reproject(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_filepath:str,
@@ -360,14 +389,18 @@ def crop_and_reproject(
         ext = ext,
     )
 
-    band_filepaths_df['overlaps'] = \
-    band_filepaths_df['filepath'].apply(
-        lambda x: check_if_shape_overlaps_raster(
-            raster_filepath = x,
-            shapes_gdf = shapes_gdf,
-            nodata = nodata,
-            all_touched = ALL_TOUCHED,
-        )
+    """
+    Note:
+    ----
+    This was added because it was observed that the geometry that came from the catalog
+    did not accurately predict if the target shape actually overlaps with the raster.
+    """
+    band_filepaths_df['overlaps'] = check_if_shape_overlaps_raster_parallel(
+        raster_filepaths = band_filepaths_df['filepath'],
+        shapes_gdf = shapes_gdf,
+        nodata = nodata,
+        all_touched = ALL_TOUCHED,
+        njobs = njobs,
     )
 
     band_filepaths_df = band_filepaths_df[band_filepaths_df['overlaps']]
