@@ -121,7 +121,10 @@ def run_s2c(
 
     int_cloud_prob = (cloud_prob * QUANTIFICATION_VALUE).astype(int)
 
-    os.makedirs(os.path.split(out_filepath)[0], exist_ok=True)
+    out_folderpath = os.path.split(out_filepath)[0]
+    
+    if len(out_folderpath) == 0:
+        os.makedirs(os.path.split(out_filepath)[0], exist_ok=True)
 
     logger.info('Saving cloud probability raster')
     with rasterio.open(out_filepath, 'w', **ref_meta) as dst:
