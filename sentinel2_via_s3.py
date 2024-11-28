@@ -25,13 +25,8 @@ COL_CLOUDCOVER = 'cloud_cover'
 COL_SATELLITE = 'satellite'
 
 
-def update_catalog(
-    catalog_gdf:gpd.GeoDataFrame, # contains other info that needs to be stored in local catalog
-    s3paths:list[cdseutils.mydataclasses.S3Path],
-    download_filepaths:list[str],
-    download_successes:list[bool],
+def get_catalog_with_manager(
     sentinel2_local_catalog_filepath:str,
-    satellite:str,
 ):
     catalog_manager = cm.CatalogManager(
         catalog_filepath = sentinel2_local_catalog_filepath,
@@ -46,6 +41,20 @@ def update_catalog(
                   COL_CLOUDCOVER: cm.DTYPE_FLOAT,
                     COL_GEOMETRY: cm.DTYPE_MULTIPOLYGON,
         }
+    )
+    return catalog_manager
+
+
+def update_catalog(
+    catalog_gdf:gpd.GeoDataFrame, # contains other info that needs to be stored in local catalog
+    s3paths:list[cdseutils.mydataclasses.S3Path],
+    download_filepaths:list[str],
+    download_successes:list[bool],
+    sentinel2_local_catalog_filepath:str,
+    satellite:str,
+):
+    catalog_manager = get_catalog_with_manager(
+        sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
     )
 
     id_to_download_files = {}

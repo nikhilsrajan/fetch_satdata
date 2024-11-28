@@ -37,7 +37,7 @@ def run_datacube_ops(
     return datacube, metadata
 
 
-def _run_s2cloudless_core(
+def run_s2cloudless_core(
     datacube:np.ndarray,
 ):
     """
@@ -52,7 +52,7 @@ def _run_s2cloudless_core(
     return int_cmk
 
 
-def _run_s2cloudless_core_chunkwise(
+def run_s2cloudless_core_chunkwise(
     datacube:np.ndarray,
     chunksize:int = 50,
     njobs:int = 8,
@@ -69,11 +69,11 @@ def _run_s2cloudless_core_chunkwise(
     with mp.Pool(njobs) as p:
         if print_messages:
             int_cmks = list(tqdm.tqdm(
-                p.imap(_run_s2cloudless_core, datacube_chunks), 
+                p.imap(run_s2cloudless_core, datacube_chunks), 
                 total=len(datacube_chunks)
             ))
         else:
-            int_cmks = list(p.imap(_run_s2cloudless_core, datacube_chunks))
+            int_cmks = list(p.imap(run_s2cloudless_core, datacube_chunks))
     
     return np.concatenate(int_cmks, axis=0)
 
@@ -96,7 +96,7 @@ def run_s2cloudless(
     band_indices = {_band : _index for _index, _band in enumerate(metadata['bands'])}
     model_band_indexes = [band_indices[_model_band] for _model_band in MODEL_BANDS]
 
-    int_cmk = _run_s2cloudless_core_chunkwise(
+    int_cmk = run_s2cloudless_core_chunkwise(
         datacube = (datacube[:,:,:,model_band_indexes] + RADIO_ADD_OFFSET) / QUANTIFICATION_VALUE,
         chunksize = chunksize,
         njobs = njobs,

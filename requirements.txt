@@ -1,2 +1,3 @@
 paramiko
 s2cloudless
+colorlog

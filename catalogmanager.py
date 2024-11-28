@@ -131,6 +131,21 @@ class CatalogManager(object):
                 else:
                     continue
             else:
+                """
+                The DTYPE_LIST_STR is handelled in a specific manner. It was designed to
+                store the list of files that are stores in a folder - for example the different
+                band files for a satellite tile, and for datacube generation the datacube.npy
+                and the metadata.pickle.npy.
+
+                For this type, for a given id, if there is an entry present - say: ['A', 'B', 'C']
+                if add function is used for the same id but the new entry being: ['C', 'D', 'E'],
+                the new items would be added making the updated entry: ['A', 'B', 'C', 'D', 'E'].
+
+                Deleting items from this type is non trivial thus a separate function is written
+                below - modify_list_str_col.
+
+                In all other types, the value is directly replaced.
+                """
                 if col_dtype == DTYPE_LIST_STR:
                     updated_list = set(value)
                     if not first_entry:
