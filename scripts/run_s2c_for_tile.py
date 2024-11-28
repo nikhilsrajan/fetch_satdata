@@ -127,6 +127,8 @@ def run_s2c(
     if len(out_folderpath) != 0:
         os.makedirs(out_folderpath, exist_ok=True)
 
+    ref_meta = rsutils.utils.driver_specific_meta_updates(meta=ref_meta)
+
     logger.info('Saving cloud probability raster')
     with rasterio.open(out_filepath, 'w', **ref_meta) as dst:
         dst.write(int_cloud_prob)
