@@ -4,6 +4,7 @@ import multiprocessing as mp
 import numpy as np
 import os
 import functools
+import time
 
 import sys
 sys.path.append('..')
@@ -122,7 +123,7 @@ def run_s2c(
     int_cloud_prob = (cloud_prob * QUANTIFICATION_VALUE).astype(int)
 
     out_folderpath = os.path.split(out_filepath)[0]
-    
+
     if len(out_folderpath) == 0:
         os.makedirs(os.path.split(out_filepath)[0], exist_ok=True)
 
@@ -174,8 +175,15 @@ if __name__ == '__main__':
 
     njobs = int(args.njobs)
 
+
+    start_time = time.time()
+
     run_s2c(
         filepaths = filepaths,
         out_filepath = out_filepath,
         njobs = njobs,
     )
+
+    end_time = time.time()
+
+    logger.info(f'--- t_elapsed: {round(end_time - start_time, 2)} secs ---')
