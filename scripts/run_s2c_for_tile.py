@@ -124,8 +124,8 @@ def run_s2c(
 
     out_folderpath = os.path.split(out_filepath)[0]
 
-    if len(out_folderpath) == 0:
-        os.makedirs(os.path.split(out_filepath)[0], exist_ok=True)
+    if len(out_folderpath) != 0:
+        os.makedirs(out_folderpath, exist_ok=True)
 
     logger.info('Saving cloud probability raster')
     with rasterio.open(out_filepath, 'w', **ref_meta) as dst:
@@ -155,6 +155,7 @@ if __name__ == '__main__':
     parser.add_argument('--b12', action='store', required=True, help='Filepath to B12.')
     parser.add_argument('--export', action='store', required=True, help='Filepath to export to.')
     parser.add_argument('-j', '--njobs', default=1, action='store', required=False, help='[default = 1] Number of cores to use.')
+    parser.add_argument('--verbose', action='store_true')
 
     args = parser.parse_args()
 
@@ -175,6 +176,8 @@ if __name__ == '__main__':
 
     njobs = int(args.njobs)
 
+    if args.verbose:
+        logger.setLevel('INFO')
 
     start_time = time.time()
 
