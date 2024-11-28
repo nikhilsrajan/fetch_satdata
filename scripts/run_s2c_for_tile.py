@@ -101,6 +101,17 @@ def run_s2c(
     out_filepath:str,
     njobs:int,
 ):
+    out_folderpath = os.path.split(out_filepath)[0]
+    ext = out_filepath.split('.')[-1].lower()
+    if ext not in ['tif', 'jp2']:
+        logger.error(f'Invalid output filepath extension: {ext}')
+        raise ValueError(f'Invalid output filepath extension: {ext}')
+    
+    driver = {
+        'tif': 'GTiff',
+        'jp2': 'JP2OpenJPEG',
+    }[ext]
+  
     logger.info('Resample rasters and create datacube.')
     datacube, ref_meta = \
     resample_tiles_and_create_datacube(
@@ -122,12 +133,10 @@ def run_s2c(
 
     int_cloud_prob = (cloud_prob * QUANTIFICATION_VALUE).astype(int)
 
-    out_folderpath = os.path.split(out_filepath)[0]
-
     if len(out_folderpath) != 0:
         os.makedirs(out_folderpath, exist_ok=True)
 
-    ref_meta = rsutils.utils.driver_specific_meta_updates(meta=ref_meta)
+    ref_meta = rsutils.utils.driver_specific_meta_updates(meta=ref_meta, driver=driver)
 
     logger.info('Saving cloud probability raster')
     with rasterio.open(out_filepath, 'w', **ref_meta) as dst:
