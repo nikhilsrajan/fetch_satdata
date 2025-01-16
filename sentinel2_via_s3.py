@@ -247,34 +247,14 @@ def download_sentinel2_tiles(
             raise ValueError('catalog_gdf contains duplicate ids.')
     else:
         shapes_gdf = gpd.read_file(roi_filepath)
-        bboxes = cdseutils.utils.get_bboxes(shapes_gdf=shapes_gdf)
-        # fetch_catalog is caching the results, cache_folderpath is a
-        # critical parameter to reduce api calls.
-        catalog_gdf, results = cdseutils.utils.fetch_catalog(
-            bboxes = bboxes,
+        catalog_gdf = cdseutils.utils.query_catalog(
+            shapes_gdf = shapes_gdf,
             sh_creds = cdse_creds.sh_creds,
             collection = collection,
             startdate = startdate,
             enddate = enddate,
             cache_folderpath = catalog_save_folderpath,
         )
-        catalog_gdf['cloud_cover'] = [x['properties']['eo:cloud_cover'] for x in results]
-        
-        intersecting_ids = gpd.sjoin(
-            catalog_gdf, shapes_gdf[['geometry']].to_crs(catalog_gdf.crs)
-        )['id'].unique()
-
-        catalog_gdf = catalog_gdf[catalog_gdf['id'].isin(intersecting_ids)].reset_index(drop=True)
-
-        if catalog_gdf['id'].value_counts().max() > 1:
-            raise ValueError(
-                "CRITICAL ERROR: When this code was written (2024-08-19), the assumption "
-                "was that id obtained from sentinelhub catalog was always going to be unique. "
-                "This does not hold true anymore. This is a critical issue as the folder "
-                "structure for locally storing sentinel-2 tiles were based on the assumption "
-                "that the id would be unique. Heavy refactoring needs to be performed to "
-                "take into consideration this new found bug."
-            )
     
     if max_cloudcover_threshold is not None:
         catalog_gdf = catalog_gdf[catalog_gdf['cloud_cover'] <= max_cloudcover_threshold]

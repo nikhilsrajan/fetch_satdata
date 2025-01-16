@@ -6,10 +6,11 @@ import os
 import functools
 import time
 
-import sys
-sys.path.append('..')
-
 import config
+
+import sys
+sys.path.append(os.path.join(config.CURRENT_DIRECTORY, '..'))
+
 import argparse
 import rsutils.utils
 from init_logger import get_logger
