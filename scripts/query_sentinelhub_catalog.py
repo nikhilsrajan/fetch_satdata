@@ -100,4 +100,6 @@ if __name__ == '__main__':
 
     logger.info(f"Number of tiles found: {catalog_gdf.shape[0]}")
 
+    catalog_gdf['satellite'] = satellite
+
     catalog_gdf.to_file(export_filepath)

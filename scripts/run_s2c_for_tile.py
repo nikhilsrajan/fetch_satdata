@@ -167,7 +167,7 @@ if __name__ == '__main__':
     parser.add_argument('--b12', action='store', required=True, help='Filepath to B12.')
     parser.add_argument('--export', action='store', required=True, help='Filepath to export to.')
     parser.add_argument('-j', '--njobs', default=1, action='store', required=False, help='[default = 1] Number of cores to use.')
-    parser.add_argument('--verbose', action='store_true')
+    parser.add_argument('-v', '--verbose', action='store_true')
 
     args = parser.parse_args()
 
