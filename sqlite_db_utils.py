@@ -4,6 +4,11 @@ import geopandas as gpd
 import pandas as pd
 import shapely
 import logging
+import datetime
+
+
+TIMESTAMP_COLS = ['timestamp', 'last_update', 'startdate', 'enddate']
+GEOMETRY_COLS = ['geometry']
 
 
 def create_db(
@@ -45,26 +50,30 @@ def str_to_ts(ts_str:str)->pd.Timestamp:
 def gpd_to_sql_row(row_dict:dict)->dict:
     reformatted_dict = {}
     for k, v in row_dict.items():
-        if k in ['timestamp', 'last_update']:
+        if isinstance(v, datetime.datetime):
             v = ts_to_str(v)
-        elif k == 'geometry':
+        elif isinstance(v, shapely.Geometry):
             v = shapely.to_wkt(v)
         reformatted_dict[k] = v
     return reformatted_dict
 
 
-def sql_to_gpd_row(row_dict:dict)->dict:
+def sql_to_gpd_row(
+    row_dict:dict, 
+    timestamp_cols:list[str] = TIMESTAMP_COLS, 
+    geometry_cols:list[str] = GEOMETRY_COLS,
+)->dict:
     reformatted_dict = {}
     for k, v in row_dict.items():
-        if k in ['timestamp', 'last_update']:
+        if k in timestamp_cols:
             v = str_to_ts(v)
-        elif k == 'geometry':
+        elif k in geometry_cols:
             v = shapely.from_wkt(v)
         reformatted_dict[k] = v
     return reformatted_dict
 
 
-def insert_row_to_db(
+def insert_rows_to_db(
     database:str, 
     table:str, 
     data_dicts:list[dict], 
@@ -72,17 +81,25 @@ def insert_row_to_db(
     logger:logging.Logger = None,
 ):
     cols = []
-    data = []
+    datas = []
 
     cols = set()
 
     for data_dict in data_dicts:
-        cols += set(data_dict.keys())
+        cols |= set(data_dict.keys())
+
+    cols = list(cols)
 
     for data_dict in data_dicts:
+        data = []
         for col in cols:
-            ...
-
+            if col not in data_dict.keys():
+                val = None
+            else:
+                val = data_dict[col]
+            data.append(val)
+        datas.append(tuple(data))
+        del data
 
     insertion_success = True
 
@@ -92,7 +109,7 @@ def insert_row_to_db(
         connection.execute('pragma journal_mode=wal')
 
     try:
-        cursor.execute(f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join(['?' for i in range(len(data))])})", data)
+        cursor.executemany(f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join(['?' for i in range(len(cols))])})", datas)
     except sqlite3.IntegrityError as e:
         insertion_success = False
         msg = f'Insertion to DB failed -- {e}'
@@ -114,6 +131,8 @@ def fetch_value_in_db(
     id_col:str,
     col:str,
     use_WAL:bool = True,
+    timestamp_cols:list[str] = TIMESTAMP_COLS, 
+    geometry_cols:list[str] = GEOMETRY_COLS,
 ):
     return fetch_rows_from_db(
         database = database,
@@ -122,6 +141,8 @@ def fetch_value_in_db(
         columns = [col],
         ids = [id],
         id_col = id_col,
+        timestamp_cols = timestamp_cols,
+        geometry_cols = geometry_cols,
     )[col][0]
 
 
@@ -188,6 +209,8 @@ def fetch_rows_from_db(
     ids:list[str] = None, 
     id_col:str = None,
     query:str = None,
+    timestamp_cols:list[str] = TIMESTAMP_COLS, 
+    geometry_cols:list[str] = GEOMETRY_COLS,
 ):
     if query is None:
         query = generate_query(
@@ -214,7 +237,11 @@ def fetch_rows_from_db(
 
     for row in results:
         row_dict = dict(zip(columns, row))
-        parsed_row_dict = sql_to_gpd_row(row_dict)
+        parsed_row_dict = sql_to_gpd_row(
+            row_dict = row_dict,
+            timestamp_cols = timestamp_cols,
+            geometry_cols = geometry_cols,
+        )
         for k, v in parsed_row_dict.items():
             data[k].append(v)
     

@@ -615,7 +615,7 @@ def update_catalog(
     dcm = load_datacube_catalog_manager(
         datacube_catalog_filepath = datacube_catalog_filepath,
     )
-    dcm.add(entry = {
+    dcm.insert_many(entries = [{
         COL_ID: get_datacube_id(roi_name = roi_name,
                                 actual_startdate = actual_startdate,
                                 actual_enddate = actual_enddate,
@@ -625,10 +625,9 @@ def update_catalog(
         COL_ENDDATE: actual_enddate,
         COL_CONFIG_ID: config_id,
         COL_LOCAL_FOLDERPATH: os.path.abspath(datacube_folderpath),
-        COL_FILES: [FILENAME_DATACUBE, FILENAME_METADATA, FILENAME_MEANSUNANGLE],
+        COL_FILES: ','.join([FILENAME_DATACUBE, FILENAME_METADATA, FILENAME_MEANSUNANGLE]),
         COL_GEOMETRY: geometry_epsg_4326,
-    }, force_update = force_update)
-    dcm.save()
+    }])
 
 
 GEOM_EXISTS_WITH_DIFFERENT_NAME = 'status::geom-exists-with-different-name'

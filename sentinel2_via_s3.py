@@ -94,21 +94,20 @@ def update_catalog(
     id_to_cloudcover = dict(zip(selected_catalog_gdf[COL_ID], selected_catalog_gdf[COL_CLOUDCOVER]))
     id_to_geometry = dict(zip(selected_catalog_gdf[COL_ID], selected_catalog_gdf[COL_GEOMETRY]))
 
-    for _id in _ids:
-        catalog_manager.add(
-            entry = {
-                              COL_ID: _id,
-                       COL_TIMESTAMP: id_to_timestamps[_id],
-                           COL_S3URL: id_to_s3urls[_id],
-                COL_LOCAL_FOLDERPATH: id_to_download_folderpath[_id],
-                           COL_FILES: id_to_download_files[_id],
-                      COL_CLOUDCOVER: id_to_cloudcover[_id],
-                        COL_GEOMETRY: id_to_geometry[_id],
-                       COL_SATELLITE: satellite,
-            }
-        )
-    
-    catalog_manager.save()
+    entries = [
+        {
+                            COL_ID: _id,
+                    COL_TIMESTAMP: id_to_timestamps[_id],
+                        COL_S3URL: id_to_s3urls[_id],
+            COL_LOCAL_FOLDERPATH: id_to_download_folderpath[_id],
+                        COL_FILES: ','.join(id_to_download_files[_id]),
+                    COL_CLOUDCOVER: id_to_cloudcover[_id],
+                    COL_GEOMETRY: id_to_geometry[_id],
+                    COL_SATELLITE: satellite,
+        } for _id in _ids
+    ]
+
+    catalog_manager.insert_many(entries = entries)
 
 
 def chunkwise_download_files_and_update_catalog(
