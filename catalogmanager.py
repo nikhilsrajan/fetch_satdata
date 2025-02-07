@@ -5,6 +5,7 @@ import pandas as pd
 import datetime
 
 import exceptions
+import sqlite_db_utils
 
 
 DTYPE_STR = 'str'
@@ -14,7 +15,7 @@ DTYPE_INT = 'int'
 DTYPE_MULTIPOLYGON = 'multipolygon'
 DTYPE_LIST_STR = 'list[str]'
 
-COL_ID = 'id'
+COL_ID = 'id' # always a primary key
 COL_LOCAL_FOLDERPATH = 'local_folderpath'
 COL_FILES = 'files'
 COL_LAST_UPDATE = 'last_update'
@@ -38,6 +39,15 @@ DTYPE_PLACEHOLDER = {
     DTYPE_LIST_STR: 'blah'
 }
 
+DTYPE_DBTYPE_MAP = {
+    DTYPE_STR: 'TEXT',
+    DTYPE_TIMESTAMP: 'TEXT',
+    DTYPE_FLOAT: 'REAL',
+    DTYPE_INT: 'INTEGER',
+    DTYPE_MULTIPOLYGON: 'TEXT',
+    DTYPE_LIST_STR: 'TEXT',
+}
+
 
 def dt2ts(
     dt:datetime.datetime, 
@@ -59,7 +69,7 @@ def merge_multiple_catalogs(
 
 
 class CatalogManager(object):
-    def __init__(self, catalog_filepath:str, cols_dtype_dict:dict):
+    def __init__(self, catalog_db_filepath:str, table_name:str, cols_dtype_dict:dict):
         if COL_ID not in cols_dtype_dict.keys():
             cols_dtype_dict[COL_ID] = DTYPE_STR
         elif cols_dtype_dict[COL_ID] != DTYPE_STR:
@@ -74,10 +84,11 @@ class CatalogManager(object):
                 f'dtype of {COL_LAST_UPDATE} column must be {DTYPE_TIMESTAMP}'
             )
         
-        self.catalog_filepath = catalog_filepath
+        self.catalog_db_filepath = catalog_db_filepath
+        self.table = table_name
         self.cols_dtype_dict = cols_dtype_dict
     
-        folderpath = os.path.split(catalog_filepath)[0]
+        folderpath = os.path.split(catalog_db_filepath)[0]
         os.makedirs(folderpath, exist_ok=True)
         if not os.access(folderpath, os.W_OK):
             raise exceptions.CatalogManagerException(
@@ -85,20 +96,22 @@ class CatalogManager(object):
                 f'in folderpath={folderpath}. Set a new catalog_filepath.'
             )
 
-        if os.path.exists(self.catalog_filepath):
-            self.catalog_gdf:gpd.GeoDataFrame = gpd.read_file(self.catalog_filepath)
-            self.catalog_gdf = self.catalog_gdf.set_index(COL_ID)
-        else:
-            # it was difficult to figure out how to set the dtypes for each columns correctly
-            # the work around implemented is to initialise with placeholders and let geopandas
-            # figure out the dtype by itself.
-            self.catalog_gdf = gpd.GeoDataFrame(
-                data = {
-                    col: [DTYPE_PLACEHOLDER[dtype]]
-                    for col, dtype in self.cols_dtype_dict.items()
-                },
-                crs = EPSG_4326
-            ).set_index(COL_ID).drop(index=DTYPE_PLACEHOLDER[DTYPE_STR])
+        if not os.path.exists(self.catalog_db_filepath):            
+            # creating DB
+            cols_dbtype_dict = {}
+            for col, dtype in self.cols_dtype_dict.items():
+                dbtype = DTYPE_DBTYPE_MAP[dtype]
+                if col == COL_ID:
+                    dbtype = 'TEXT UNIQUE'
+                cols_dbtype_dict[col] = dbtype
+            
+            sqlite_db_utils.create_db(
+                db_path = self.catalog_db_filepath,
+                table_name = self.table,
+                col_type_dict = cols_dbtype_dict,
+                id_col = COL_ID,
+                overwrite = False,
+            )
 
     
     @staticmethod
@@ -117,6 +130,13 @@ class CatalogManager(object):
 
         _id = entry[COL_ID]
         del entry[COL_ID]
+
+        # if length of the fetched rows is 0 it is the first entry
+        first_entry = sqlite_db_utils.fetch_rows_from_db(
+            database=self.catalog_db_filepath, 
+            table=self.table, 
+            ids=[_id],
+        ).shape[0] == 0 
 
         first_entry = _id not in self.catalog_gdf.index
 
@@ -145,23 +165,48 @@ class CatalogManager(object):
                 below - modify_list_str_col.
 
                 In all other types, the value is directly replaced.
+
+                CAUTION:
+                -------
+                Even with using a DB, updating DTYPE_LIST_STR type column is prone to problems.
+                Say id=1 has ['A'] in col 'blah'. And two processes are adding to it parallely,
+                'B' and 'C'. There is a good chance the end result would be ['A', 'B'] or ['A', 'C']
+                not ['A', 'B', 'C'] as we want. The solution is to figure out an alternative DB
+                structure where we do not have a type called DTYPE_LIST_STR.
                 """
                 if col_dtype == DTYPE_LIST_STR:
                     updated_list = set(value)
                     if not first_entry:
-                        current_list = self.catalog_gdf.loc[_id, col].split(',')
+                        current_list = sqlite_db_utils.fetch_value_in_db(
+                            database = self.catalog_db_filepath,
+                            table = self.table,
+                            id = _id,
+                            id_col = COL_ID,
+                            col = col,
+                        ).split(',')
+
                         if current_list != value:
                             entry_modified_dict[col] = True
+
                         updated_list = set(current_list) | set(value)
                     else:
                         entry_modified_dict[col] = True
-                    self.catalog_gdf.loc[_id, col] = ','.join(updated_list)
+
+                    sqlite_db_utils.update_value_in_db(
+                        database = self.catalog_db_filepath,
+                        table = self.table,
+                        id = _id,
+                        id_col = COL_ID,
+                        col = col,
+                        update_value = ','.join(updated_list),
+                    )
                 else:
                     if not first_entry:
                         if self.catalog_gdf.loc[_id, col] != value:
                             entry_modified_dict[col] = True
                     else:
                         entry_modified_dict[col] = True
+
                     self.catalog_gdf.loc[_id, col] = value
                         
         
@@ -193,6 +238,14 @@ class CatalogManager(object):
             add_items = set()
         else:
             add_items = set(add_items)
+
+        current_items = sqlite_db_utils.fetch_rows_from_db(
+            database = self.catalog_db_filepath,
+            table = self.table,
+            columns = [col],
+            ids = [_id],
+            id_col = COL_ID,
+        )[col][0].split(',')
         
         current_items = set(self.catalog_gdf.loc[_id, col].split(','))
         
@@ -226,6 +279,7 @@ class CatalogManager(object):
 
     
     def delete_entry(self, _id:str):
+        raise NotImplementedError()
         if _id not in self.catalog_gdf.index:
             raise exceptions.CatalogManagerException(
                 f'id={_id} not present in the catalog. Can not perform delete_entry.'
@@ -233,5 +287,6 @@ class CatalogManager(object):
         self.catalog_gdf = self.catalog_gdf.drop(index=_id)
     
 
-    def save(self):
-        self.catalog_gdf.to_file(self.catalog_filepath)
+    # Save function removed as things are directly written on to the DB
+    # def save(self):
+    #     self.catalog_gdf.to_file(self.catalog_filepath)

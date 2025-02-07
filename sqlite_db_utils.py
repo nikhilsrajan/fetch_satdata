@@ -67,22 +67,29 @@ def sql_to_gpd_row(row_dict:dict)->dict:
 def insert_row_to_db(
     database:str, 
     table:str, 
-    data_dict:dict, 
+    data_dicts:list[dict], 
     use_WAL:bool = True, 
     logger:logging.Logger = None,
 ):
+    cols = []
+    data = []
+
+    cols = set()
+
+    for data_dict in data_dicts:
+        cols += set(data_dict.keys())
+
+    for data_dict in data_dicts:
+        for col in cols:
+            ...
+
+
+    insertion_success = True
+
     connection = sqlite3.connect(database)
     cursor = connection.cursor()
     if use_WAL:
         connection.execute('pragma journal_mode=wal')
-        
-    cols = []
-    data = []
-    for k, v in data_dict.items():
-        cols.append(k)
-        data.append(v)
-
-    insertion_success = True
 
     try:
         cursor.execute(f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join(['?' for i in range(len(data))])})", data)
@@ -98,6 +105,57 @@ def insert_row_to_db(
     connection.close()
 
     return insertion_success
+
+
+def fetch_value_in_db(
+    database:str,
+    table:str,
+    id:str,
+    id_col:str,
+    col:str,
+    use_WAL:bool = True,
+):
+    return fetch_rows_from_db(
+        database = database,
+        table = table,
+        use_WAL = use_WAL,
+        columns = [col],
+        ids = [id],
+        id_col = id_col,
+    )[col][0]
+
+
+def update_value_in_db(
+    database:str,
+    table:str,
+    id:str,
+    id_col:str,
+    col:str,
+    update_value,
+    use_WAL:bool = True,
+    logger:logging.Logger = None,
+):
+    updation_success = True
+
+    connection = sqlite3.connect(database)
+    cursor = connection.cursor()
+    if use_WAL:
+        connection.execute('pragma journal_mode=wal')
+    
+    try:
+        cursor.execute(f"UPDATE {table} SET {col} = ? WHERE {id_col} = ?", (update_value, id))
+    except Exception as e:
+        updation_success = False
+        msg = f'Updation to DB failed -- {e}'
+        if logger is not None:
+            logger.error(msg)
+        else:
+            print(msg)
+
+    connection.commit()
+    connection.close()
+
+    return updation_success
 
 
 def generate_query(
@@ -152,14 +210,12 @@ def fetch_rows_from_db(
 
     connection.close()
     
-    data = {}
+    data = {col: [] for col in columns}
 
     for row in results:
         row_dict = dict(zip(columns, row))
         parsed_row_dict = sql_to_gpd_row(row_dict)
         for k, v in parsed_row_dict.items():
-            if k not in data.keys():
-                data[k] = []
             data[k].append(v)
     
     if 'geometry' in columns:
@@ -168,3 +224,25 @@ def fetch_rows_from_db(
         fetched_gdf = gpd.GeoDataFrame(data=data)
     
     return fetched_gdf
+
+
+def delete_rows_from_db():
+    raise NotImplementedError()
+    try:
+        sqliteConnection = sqlite3.connect('SQLite_Python.db')
+        cursor = sqliteConnection.cursor()
+        print("Connected to SQLite")
+
+        # Deleting single record now
+        sql_delete_query = """DELETE from SqliteDb_developers where id = 6"""
+        cursor.execute(sql_delete_query)
+        sqliteConnection.commit()
+        print("Record deleted successfully ")
+        cursor.close()
+
+    except sqlite3.Error as error:
+        print("Failed to delete record from sqlite table", error)
+    finally:
+        if sqliteConnection:
+            sqliteConnection.close()
+            print("the sqlite connection is closed")
