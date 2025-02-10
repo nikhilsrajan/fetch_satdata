@@ -128,7 +128,7 @@ class CatalogManager(object):
             entry[COL_LAST_UPDATE] = self.get_current_timestamp()
             data_dicts.append(sqlite_db_utils.gpd_to_sql_row(entry))
 
-        sqlite_db_utils.insert_rows_to_db(
+        return sqlite_db_utils.insert_rows_to_db(
             database = self.catalog_db_filepath,
             table = self.table,
             data_dicts = data_dicts,
