@@ -1,6 +1,7 @@
 import argparse
 import pandas as pd
 import geopandas as gpd
+import time
 
 import config
 from init_logger import get_logger
@@ -44,6 +45,8 @@ def get_shapes_gdf(roi:str):
 
 
 if __name__ == '__main__':
+    start_time = time.time()
+
     parser = argparse.ArgumentParser(
         prog = 'python create_s2l2a_datacube.py',
         description = (
@@ -95,3 +98,7 @@ if __name__ == '__main__':
         # if_missing_files = ...,
         overwrite = args.overwrite,
     )
+
+    end_time = time.time()
+
+    logger.info(f'--- t_elapsed: {round(end_time - start_time, 2)} s ---')

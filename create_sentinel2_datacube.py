@@ -625,7 +625,7 @@ def create_s2l2a_datacube(
         run_datacube_ops(
             folderpath = export_folderpath,
             sequence = datacube_ops_sequence,
-            print_messages = print_messages,
+            logger = logger,
         )
 
         create_a_blank_file(STEP_RAWDATACUBE_PROCESSED_FILE)
