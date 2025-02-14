@@ -6,6 +6,7 @@ import datetime
 import pandas as pd
 import numba
 import multiprocessing as mp
+import logging
 
 import create_datacube
 import exceptions
@@ -28,11 +29,11 @@ def run_datacube_ops(
     datacube:np.ndarray,
     metadata:dict,
     sequence:list,
-    print_messages:bool=True,
+    logger:logging.Logger = None,
 ):
     for func, kwargs in sequence:
-        if print_messages:
-            print(f'Running {func.__qualname__} -- kwargs={kwargs}')
+        if logger is not None:
+            logger.info(f'Running {func.__qualname__} -- kwargs={kwargs}')
         datacube, metadata = func(datacube=datacube, metadata=metadata, **kwargs)
     return datacube, metadata
 

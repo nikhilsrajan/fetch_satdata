@@ -301,7 +301,7 @@ def generate_query(
     else:
         query += ', '.join(columns) + ' '
     
-    query += f"FROM {table} "
+    query += f"FROM '{table}' "
 
     if ids is not None and id_col is not None:
         query += f"WHERE {id_col} IN "

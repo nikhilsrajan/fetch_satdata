@@ -3,6 +3,7 @@ import datetime
 import warnings
 import shapely
 import os
+import logging
 
 import catalogmanager
 import configsmanager
@@ -388,7 +389,7 @@ def check_if_datacube_already_present(
 def run_datacube_ops(
     folderpath:str,
     sequence:list,
-    print_messages:bool = True,
+    logger:logging.Logger = None,
 ):
     datacube, metadata = create_datacube.load_datacube(
         folderpath = folderpath
@@ -397,7 +398,7 @@ def run_datacube_ops(
         datacube = datacube,
         metadata = metadata,
         sequence = sequence,
-        print_messages = print_messages,
+        logger = logger,
     )
     create_datacube.save_datacube(
         datacube = datacube,
@@ -499,10 +500,16 @@ def create_s2l1c_datacube(
     )
 
 
+def create_a_blank_file(filepath):
+    with open(filepath, 'w') as h:
+        h.write(datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + 'Z')
+
+
 def create_s2l2a_datacube(
     shapes_gdf:gpd.GeoDataFrame,
     export_folderpath:str,
-    satellite_catalog_filepath:str,
+    catalog_db_filepath:str,
+    table_name:str,
     startdate:datetime.datetime,
     enddate:datetime.datetime,
     bands:list[str],
@@ -517,13 +524,36 @@ def create_s2l2a_datacube(
         9,  # Cloud high probability
         10, # Thin cirrus
     ],
+    logger:logging.Logger = None,
     print_messages:bool = True,
     if_missing_files = 'raise_error',
+    overwrite:bool = False,
 ):
+    """
+    There are three major steps involved in the datacube creation:
+    1. Creation of the raw datacube
+    2. Extraction of mean sun angle
+    3. Processing of the datacube
+
+    Since snakemake deals with output files to find out which steps have been completed,
+    and since the path of the datacube numpy array and metadata remains unchanged, the 
+    way of knowing if all required steps where completed is via blank output files.
+
+    At the end of the each major step a file will be created which will signify that the
+    major step was completed.
+
+    1. 1_raw_datacube_created.txt
+    2. 2_mean_sun_angle_extracted.txt
+    3. 3_raw_datacube_processed.txt
+    """
     SATELLITE = cdseutils.constants.Bands.S2L2A.NAME
     NODATA = 0 # since the script is hardcoded for sentinel-2-l2a
     EXT = '.jp2' # since the script is hardcoded for sentinel-2-l2a
     MAX_TIMEDELTA_DAYS = 5 # since the script is hardcoded for sentinel-2-l2a
+
+    STEP_RAWDATACUBE_CREATED_FILE = os.path.join(export_folderpath, '1_raw_datacube_created.txt')
+    STEP_MEANSUNANGLE_EXTRACTED_FILE = os.path.join(export_folderpath, '2_mean_sun_angle_extracted.txt')
+    STEP_RAWDATACUBE_PROCESSED_FILE = os.path.join(export_folderpath, '3_raw_datacube_processed.txt')
 
     for ref_band_candidate in REF_BAND_ORDER[cdseutils.constants.Bands.S2L2A.NAME]:
         if ref_band_candidate in bands:
@@ -532,60 +562,73 @@ def create_s2l2a_datacube(
 
     working_dir = os.path.join(export_folderpath, 'temp')
 
-    create_datacube.create_datacube(
-        shapes_gdf = shapes_gdf,
-        catalog_filepath = satellite_catalog_filepath,
-        satellite = SATELLITE,
-        startdate = startdate,
-        enddate = enddate,
-        bands = bands,
-        out_folderpath = export_folderpath,
-        working_dir = working_dir,
-        nodata = NODATA,
-        njobs = njobs,
-        resampling_ref_band = resampling_ref_band,
-        delete_working_dir = True,
-        satellite_folderpath = None,
-        print_messages = print_messages,
-        ext = EXT,
-        if_missing_files = if_missing_files,
-        max_timedelta_days = MAX_TIMEDELTA_DAYS,
-    )
+    if not os.path.exists(STEP_RAWDATACUBE_CREATED_FILE) or overwrite:
+        create_datacube.create_datacube(
+            shapes_gdf = shapes_gdf,
+            catalog_db_filepath = catalog_db_filepath,
+            table_name = table_name,
+            satellite = SATELLITE,
+            startdate = startdate,
+            enddate = enddate,
+            bands = bands,
+            out_folderpath = export_folderpath,
+            working_dir = working_dir,
+            nodata = NODATA,
+            njobs = njobs,
+            resampling_ref_band = resampling_ref_band,
+            delete_working_dir = True,
+            satellite_folderpath = None,
+            print_messages = print_messages,
+            ext = EXT,
+            if_missing_files = if_missing_files,
+            max_timedelta_days = MAX_TIMEDELTA_DAYS,
+            logger = logger,
+        )
+        create_a_blank_file(STEP_RAWDATACUBE_CREATED_FILE)
 
-    if print_messages:
-        print('Extracting mean_sun_angle:')
-    mean_sun_angle_df = \
-    extract_metadata.extract_s2l1c_mean_sun_angle(
-        shapes_gdf = shapes_gdf,
-        catalog_filepath = satellite_catalog_filepath,
-        satellite = SATELLITE,
-        startdate = startdate,
-        enddate = enddate,
-        print_messages = print_messages,
-    )
-    mean_sun_angle_filepath = os.path.join(export_folderpath, FILENAME_MEANSUNANGLE)
-    mean_sun_angle_df.to_csv(mean_sun_angle_filepath, index=False)
 
-    datacube_ops_sequence = []
-    
-    if mosaic_days is not None:
-        datacube_ops_sequence.append((
-            datacube_ops.apply_cloud_mask_scl, dict(mask_classes = scl_mask_classes)
-        ))
-        datacube_ops_sequence.append((
-            datacube_ops.drop_bands, dict(bands_to_drop = ['SCL'])
-        ))
-        datacube_ops_sequence.append((
-            datacube_ops.median_mosaic, dict(startdate = startdate,
-                                             enddate = enddate,
-                                             mosaic_days = mosaic_days,)
-        ))
+    if not os.path.exists(STEP_MEANSUNANGLE_EXTRACTED_FILE) or overwrite: 
+        if logger is not None:
+            logger.info('Extracting mean_sun_angle:')
+        mean_sun_angle_df = \
+        extract_metadata.extract_s2l1c_mean_sun_angle(
+            shapes_gdf = shapes_gdf,
+            catalog_db_filepath = catalog_db_filepath,
+            table_name = table_name,
+            satellite = SATELLITE,
+            startdate = startdate,
+            enddate = enddate,
+            print_messages = print_messages,
+        )
+        mean_sun_angle_filepath = os.path.join(export_folderpath, FILENAME_MEANSUNANGLE)
+        mean_sun_angle_df.to_csv(mean_sun_angle_filepath, index=False)
 
-    run_datacube_ops(
-        folderpath = export_folderpath,
-        sequence = datacube_ops_sequence,
-        print_messages = print_messages,
-    )
+        create_a_blank_file(STEP_MEANSUNANGLE_EXTRACTED_FILE)
+
+
+    if not os.path.exists(STEP_RAWDATACUBE_PROCESSED_FILE) or overwrite:
+        datacube_ops_sequence = []
+
+        if mosaic_days is not None:
+            datacube_ops_sequence.append((
+                datacube_ops.apply_cloud_mask_scl, dict(mask_classes = scl_mask_classes)
+            ))
+            datacube_ops_sequence.append((
+                datacube_ops.drop_bands, dict(bands_to_drop = ['SCL'])
+            ))
+            datacube_ops_sequence.append((
+                datacube_ops.median_mosaic, dict(startdate = startdate,
+                                                enddate = enddate,
+                                                mosaic_days = mosaic_days,)
+            ))
+
+        run_datacube_ops(
+            folderpath = export_folderpath,
+            sequence = datacube_ops_sequence,
+            print_messages = print_messages,
+        )
+
+        create_a_blank_file(STEP_RAWDATACUBE_PROCESSED_FILE)
 
 
 def get_datacube_id(

@@ -11,7 +11,8 @@ import exceptions
 
 def extract_s2l1c_mean_sun_angle(
     shapes_gdf:gpd.GeoDataFrame,
-    catalog_filepath:str,
+    catalog_db_filepath:str,
+    table_name:str,
     satellite:str, # catalog can contain multiple satellites
     startdate:datetime.datetime,
     enddate:datetime.datetime,
@@ -20,7 +21,8 @@ def extract_s2l1c_mean_sun_angle(
     METADATA_FILENAME = 'MTD_TL.xml'
 
     catalog_gdf = create_datacube.filter_catalog(
-        catalog_filepath = catalog_filepath,
+        catalog_db_filepath = catalog_db_filepath,
+        table_name = table_name,
         satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,

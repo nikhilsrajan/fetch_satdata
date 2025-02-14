@@ -13,6 +13,7 @@ import numpy as np
 import shutil
 import warnings
 import functools
+import logging
 
 import rsutils.modify_images
 import rsutils.utils
@@ -61,6 +62,7 @@ def filter_catalog_db(
     catalog_gdf = sqlite_db_utils.fetch_rows_from_db(
         database = catalog_db_filepath,
         table = table_name,
+        # Note: BETWEEN operator is inclusive
         query = f"SELECT * FROM {table_name} WHERE (timestamp BETWEEN '{query_startdate}' AND '{query_enddate}') AND satellite == '{satellite}'"
     )
 
@@ -726,6 +728,7 @@ def create_datacube(
     ext:str = '.jp2',
     delete_working_dir:bool = True,
     satellite_folderpath:str = None, # for maintaining the same folder structure
+    logger:logging.Logger = None,
     print_messages:bool = True,
     if_missing_files:str = 'raise_error', # options: ['raise_error', 'warn', None]
     max_timedelta_days:int = 5,
@@ -743,8 +746,8 @@ def create_datacube(
         max_timedelta_days = max_timedelta_days,
     )
 
-    if print_messages:
-        print('Cropping tiles and reprojecting to common CRS:')
+    if logger is not None:
+        logger.info('Cropping tiles and reprojecting to common CRS:')
     band_filepaths_df = crop_and_reproject(
         shapes_gdf = shapes_gdf,
         catalog_db_filepath = catalog_db_filepath,
@@ -763,8 +766,8 @@ def create_datacube(
         ext = ext,
     )
 
-    if print_messages:
-        print(f'Resampling cropped images to resolution of {resampling_ref_band} band:')
+    if logger is not None:
+        logger.info(f'Resampling cropped images to resolution of {resampling_ref_band} band:')
     resample_to_selected_band_inplace_by_df(
         band_filepaths_df = band_filepaths_df,
         shapes_gdf = shapes_gdf,
@@ -776,8 +779,8 @@ def create_datacube(
         print_messages = print_messages,
     )
 
-    if print_messages:
-        print(f'Resampling cropped images to merged shape:')
+    if logger is not None:
+        logger.info(f'Resampling cropped images to merged shape:')
     merge_reference_filepath, height, width \
     = resample_to_merge_master_inplace(
         band_filepaths_df = band_filepaths_df,
