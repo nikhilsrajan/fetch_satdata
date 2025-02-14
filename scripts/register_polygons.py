@@ -55,14 +55,14 @@ def fetch_polygons_db():
     # if doesn't exists then creates and empty one.
     if not os.path.exists(config.FILEPATH_POLYGONS_REGISTRY_DB):
         sqlite_db_utils.create_db(
-            db_path = config.FILEPATH_POLYGONS_REGISTRY_DB,
-            table_name = config.GEOMETRIES_TABLE,
-            col_type_dict = {
-                COL_ID: 'TEXT UNIQUE',
-                COL_GEOMETRY: 'TEXT',
+            database = config.FILEPATH_POLYGONS_REGISTRY_DB,
+            db_structure = {
+                config.GEOMETRIES_TABLE : {
+                    COL_ID: 'TEXT UNIQUE',
+                    COL_GEOMETRY: 'TEXT',
+                }
             },
             id_col = COL_ID,
-            overwrite = False,
         )
     
     return sqlite_db_utils.fetch_rows_from_db(
@@ -168,17 +168,11 @@ def register_polygons_to_db(
 
 
     for insert_batch in insert_batches:
-        insertion_success = sqlite_db_utils.insert_rows_to_db(
+        sqlite_db_utils.insert_rows_to_db(
             database = config.FILEPATH_POLYGONS_REGISTRY_DB,
             table = config.GEOMETRIES_TABLE,
             data_dicts = insert_batch,
-            logger = logger,
         )
-
-        if not insertion_success:
-            msg = 'Insertion to DB failed.'
-            logger.error(msg)
-            raise ValueError(msg)
 
 
 if __name__ == '__main__':

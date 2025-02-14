@@ -106,11 +106,9 @@ class CatalogManager(object):
                 cols_dbtype_dict[col] = dbtype
             
             sqlite_db_utils.create_db(
-                db_path = self.catalog_db_filepath,
-                table_name = self.table,
-                col_type_dict = cols_dbtype_dict,
+                database = self.catalog_db_filepath,
+                db_structure = {self.table: cols_dbtype_dict},
                 id_col = COL_ID,
-                overwrite = False,
             )
 
     

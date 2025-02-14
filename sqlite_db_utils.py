@@ -12,31 +12,114 @@ GEOMETRY_COLS = ['geometry']
 
 
 def create_db(
-    db_path:str,
-    table_name:str,
-    col_type_dict:dict,
+    database:str,
+    db_structure:dict[str, dict[str, str]], # {table : {col : type}}
     id_col:str,
-    overwrite:bool = False,
 ):
-    if os.path.exists(db_path):
-        if overwrite:
-            os.remove(db_path)
-        else:
-            raise FileExistsError(f"File already exists in the specified path: {db_path}")
-    
-    script = f"CREATE TABLE '{table_name}' ("
-    if id_col not in col_type_dict.keys():
-        raise ValueError(f'id_col={id_col} not present in col_type_dict')
-
-    for col_name, type_name in col_type_dict.items():
-        script += f"'{col_name}' {type_name},"
-    
-    script += f"PRIMARY KEY('{id_col}') );"
-
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(database)
     cursor = connection.cursor()
-    cursor.execute(script)
-    cursor.close()
+
+    try:
+        for table_name, col_type_dict in db_structure.items():
+            script = f"CREATE TABLE '{table_name}' ("
+            if id_col not in col_type_dict.keys():
+                raise ValueError(f'id_col={id_col} not present in col_type_dict')
+
+            for col_name, type_name in col_type_dict.items():
+                script += f"'{col_name}' {type_name},"
+            
+            script += f"PRIMARY KEY('{id_col}') );"
+
+            cursor.execute(script)
+
+        cursor.close()
+
+    except Exception as e:
+        cursor.close()
+        raise e
+    
+
+def add_columns_to_table(
+    database:str,
+    table:str,
+    col_type_dict:dict
+):
+    connection = sqlite3.connect(database)
+    cursor = connection.cursor()
+
+    try:
+        for col_name, col_type in col_type_dict.items():
+            cursor.execute(f"ALTER TABLE '{table}' ADD COLUMN '{col_name}' {col_type}")
+        cursor.close()
+    except Exception as e:
+        cursor.close()
+        raise e
+        
+
+def init_db(
+    database:str,
+    db_structure:dict[str, dict[str, str]], # {table : {col : type}}
+    id_col:str,  
+):
+    """
+    If DB not present, it is created.
+    If table is not present, it is added.
+    If column not present, it is added.
+    If column type does not match db_structure - error is thrown.
+    """
+
+    # new DB altogether so its straight-forward creation
+    if not os.path.exists(database):
+        create_db(database=database, db_structure=db_structure, id_col=id_col)
+        return
+
+    # DB already exists - so now we check if it needs to be altered.
+    # 1. check is all the tables exist - add if not
+    tables_in_db = get_tables_in_db(database=database, use_WAL=True)
+    completely_new_tables = [
+        table for table in db_structure.keys() 
+        if table not in tables_in_db
+    ]
+    new_tables_db_structure = {
+        table : col_type_dict 
+        for table, col_type_dict in db_structure.items() 
+        if table in completely_new_tables
+    }
+    create_db(database=database, db_structure=new_tables_db_structure, id_col=id_col)
+
+    # 2. check if all the columns exist - add if not
+    preexisting_tables_db_struct = {
+        table: get_table_col_type_dict(database=database, table=table)
+        for table in db_structure.keys()
+        if table not in completely_new_tables
+    }
+    mismatching_tables = [
+        table for table, col_type_dict in preexisting_tables_db_struct.items()
+        if col_type_dict != db_structure[table]
+    ]
+
+    for table in mismatching_tables:
+        existing_col_type_dict = preexisting_tables_db_struct[table]
+        desired_col_type_dict = db_structure[table]
+        absent_cols = set(desired_col_type_dict.keys()) - set(existing_col_type_dict.keys())
+        # check if all the column types match - raise error if not
+        for col, desired_col_type in desired_col_type_dict.items():
+            if col in absent_cols:
+                continue
+            existing_col_type = existing_col_type_dict[col]
+            if desired_col_type != existing_col_type:
+                raise ValueError(
+                    f"In table='{table}'', col='{col}' already exists with type={existing_col_type}. "
+                    f"It is non-trivial to change the type to {desired_col_type}. "
+                    "Reconsider."
+                )
+        add_columns_to_table(
+            database = database,
+            table = table,
+            col_type_dict = {
+                col: desired_col_type_dict[col] for col in absent_cols
+            }
+        )
 
 
 def ts_to_str(ts:pd.Timestamp)->str:
@@ -77,8 +160,7 @@ def insert_rows_to_db(
     database:str, 
     table:str, 
     data_dicts:list[dict], 
-    use_WAL:bool = True, 
-    logger:logging.Logger = None,
+    use_WAL:bool = True,
 ):
     cols = []
     datas = []
@@ -101,27 +183,18 @@ def insert_rows_to_db(
         datas.append(tuple(data))
         del data
 
-    insertion_success = True
-
     connection = sqlite3.connect(database)
     cursor = connection.cursor()
     if use_WAL:
         connection.execute('pragma journal_mode=wal')
 
     try:
-        cursor.executemany(f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join(['?' for i in range(len(cols))])})", datas)
-    except sqlite3.IntegrityError as e:
-        insertion_success = False
-        msg = f'Insertion to DB failed -- {e}'
-        if logger is not None:
-            logger.error(msg)
-        else:
-            print(msg)
-
-    connection.commit()
-    connection.close()
-
-    return insertion_success
+        cursor.executemany(f"INSERT INTO '{table}' ({', '.join(cols)}) VALUES ({', '.join(['?' for i in range(len(cols))])})", datas)
+        connection.commit()
+        connection.close()
+    except Exception as e:
+        connection.close()
+        raise e
 
 
 def fetch_value_in_db(
@@ -144,6 +217,42 @@ def fetch_value_in_db(
         timestamp_cols = timestamp_cols,
         geometry_cols = geometry_cols,
     )[col][0]
+
+
+def get_table_col_type_dict(
+    database:str,
+    table:str,
+    use_WAL:bool = True,
+):
+    table_info_df = fetch_rows_from_db(
+        database = database,
+        table = table,
+        query = f"PRAGMA table_info('{table}')",
+        use_WAL = use_WAL,
+    )
+
+    col_type_dict = {}
+    for index, row in table_info_df.iterrows():
+        col_type_dict[row['name']] = row['type']
+        if row['pk'] == 1:
+            col_type_dict[row['name']] += ' UNIQUE'
+
+    return col_type_dict
+
+
+def get_tables_in_db(
+    database:str, 
+    use_WAL:bool = True,
+):
+    sqlite_master_df = fetch_rows_from_db(
+        database = database,
+        table = None,
+        query = "SELECT * FROM sqlite_master",
+        use_WAL = use_WAL,
+    )
+    return sqlite_master_df[
+        sqlite_master_df['type']=='table'
+    ]['tbl_name'].to_list()
 
 
 def update_value_in_db(
