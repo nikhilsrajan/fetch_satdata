@@ -63,7 +63,7 @@ def filter_catalog_db(
         database = catalog_db_filepath,
         table = table_name,
         # Note: BETWEEN operator is inclusive
-        query = f"SELECT * FROM {table_name} WHERE (timestamp BETWEEN '{query_startdate}' AND '{query_enddate}') AND satellite == '{satellite}'"
+        query = f"SELECT * FROM '{table_name}' WHERE (timestamp BETWEEN '{query_startdate}' AND '{query_enddate}') AND satellite == '{satellite}'"
     )
 
     return catalog_gdf

@@ -72,7 +72,7 @@ if __name__ == '__main__':
     export_folderpath = str(args.export_folderpath)
     njobs = int(args.njobs)
 
-    config_desc = rc.fetch_s2l2a_config(config_id = config_id)
+    config_desc = rc.fetch_s2l2a_config(config_id = config_id)[config_id]
 
     mosaic_days = config_desc[rc.COL_MOSAIC_DAYS]
     scl_masks = rc.str_to_list_int(config_desc[rc.COL_SCL_MASKS])
@@ -86,7 +86,7 @@ if __name__ == '__main__':
         table_name = config.S2L2A_TABLE,
         startdate = startdate,
         enddate = enddate,
-        bands = cdseutils.constants.Bands.S2L2A.ALL,
+        bands = cdseutils.constants.Bands.S2L2A.ALL ,
         njobs = njobs,
         mosaic_days = mosaic_days,
         scl_mask_classes = scl_masks,
