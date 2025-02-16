@@ -254,19 +254,20 @@ if __name__ == '__main__':
         scl_mask_classes = scl_masks,
         print_messages = False,
         logger = logger,
-        # if_missing_files = ...,
         overwrite = args.overwrite,
     )
 
     end_time = time.time()
 
     if args.record:
+        logger.info('Inserting record into DB')
         record_datacube(
             roi = roi,
             startdate = startdate,
             enddate = enddate,
             config_id = config_id,
             overwrite = args.overwrite,
+            export_folderpath = export_folderpath,
         )
 
     logger.info(f'--- t_elapsed: {round(end_time - start_time, 2)} s ---')
