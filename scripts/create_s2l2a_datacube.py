@@ -110,6 +110,12 @@ def record_datacube(
         config_id = config_id,
     )
 
+    files = ','.join([
+        'datacube.npy',
+        'metadata.pickle.npy',
+        'mean_sun_angle.csv',
+    ])
+
     if check_if_datacube_exists_in_record(
         roi = roi,
         startdate = startdate,
@@ -119,11 +125,6 @@ def record_datacube(
         last_update = sqlite_db_utils.ts_to_str(ts=pd.Timestamp.now(tz='UTC'))
         startdate = sqlite_db_utils.ts_to_str(startdate)
         enddate = sqlite_db_utils.ts_to_str(enddate)
-        files = ','.join([
-            'datacube.npy',
-            'metadata.pickle.npy',
-            'mean_sun_angle.csv',
-        ])
 
         sqlite_db_utils.update_value_in_db(
             database = config.FILEPATH_DATACUBE_CATALOG_DB,
