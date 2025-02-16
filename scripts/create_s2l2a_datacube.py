@@ -116,13 +116,14 @@ def record_datacube(
         'mean_sun_angle.csv',
     ])
 
+    last_update = sqlite_db_utils.ts_to_str(ts=pd.Timestamp.now(tz='UTC'))
+
     if check_if_datacube_exists_in_record(
         roi = roi,
         startdate = startdate,
         enddate = enddate,
         config_id = config_id,
     )[0] and overwrite:
-        last_update = sqlite_db_utils.ts_to_str(ts=pd.Timestamp.now(tz='UTC'))
         startdate = sqlite_db_utils.ts_to_str(startdate)
         enddate = sqlite_db_utils.ts_to_str(enddate)
 
