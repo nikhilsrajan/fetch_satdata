@@ -106,8 +106,8 @@ def query_catalog_stats(
     table_name:str,
     satellite:str, # catalog can contain multiple satellites
     shapes_gdf:gpd.GeoDataFrame,
-    startdate:datetime,
-    enddate:datetime,
+    startdate:datetime.datetime,
+    enddate:datetime.datetime,
 ):
     stats = {
         k: None for k in [

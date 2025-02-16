@@ -528,6 +528,7 @@ def create_s2l2a_datacube(
     print_messages:bool = True,
     if_missing_files = 'raise_error',
     overwrite:bool = False,
+    override_gap_days:int = None,
 ):
     """
     There are three major steps involved in the datacube creation:
@@ -562,6 +563,10 @@ def create_s2l2a_datacube(
 
     working_dir = os.path.join(export_folderpath, 'temp')
 
+    max_timedelta_days = MAX_TIMEDELTA_DAYS
+    if override_gap_days is not None:
+        max_timedelta_days = override_gap_days
+
     if not os.path.exists(STEP_RAWDATACUBE_CREATED_FILE) or overwrite:
         create_datacube.create_datacube(
             shapes_gdf = shapes_gdf,
@@ -581,7 +586,7 @@ def create_s2l2a_datacube(
             print_messages = print_messages,
             ext = EXT,
             if_missing_files = if_missing_files,
-            max_timedelta_days = MAX_TIMEDELTA_DAYS,
+            max_timedelta_days = max_timedelta_days,
             logger = logger,
         )
         create_a_blank_file(STEP_RAWDATACUBE_CREATED_FILE)

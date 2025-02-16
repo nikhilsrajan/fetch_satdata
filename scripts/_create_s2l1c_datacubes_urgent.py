@@ -228,7 +228,7 @@ if __name__ == '__main__':
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing datacube.')
     parser.add_argument('--add-new-config', action='store_true', help='To allow addition of new config.')
     parser.add_argument('--log-file', action='store', required=False, help='Log file where the status of the different runs would be appended to.')
-    parser.add_argument('--override-gap-days', action='store', required=False, help='Override the permitted time gap.')
+    parser.add_argument('--override-gap-days', action='store', default=None, required=False, help='Override the permitted time gap.')
 
     args = parser.parse_args()
 

@@ -16,6 +16,10 @@ if 'record' in config.keys():
     if bool(config['record']):
         record_command = '--record'
 
+override_gap_days_command = ''
+if 'override_gap_days' in config.keys():
+    override_gap_days_command = f"--override-gap-days {config['override_gap_days']}"
+
 
 rois = {}
 startdates = {}
@@ -65,6 +69,7 @@ rule run:
         njobs = njobs,
         overwrite = overwrite_command,
         record = record_command
+        override_gap_days = override_gap_days_command
 
     threads: njobs
 
@@ -80,4 +85,5 @@ rule run:
             "--njobs {params.njobs} "
             "{params.overwrite} "
             "{params.record} "
+            "{params.override_gap_days} "
         )

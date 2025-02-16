@@ -195,6 +195,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--verbose', required=False, action='store_true')
     parser.add_argument('--overwrite', required=False, action='store_true')
     parser.add_argument('--record', required=False, action='store_true', help='Whether to record the creation of the datacube to datacube catalog')
+    parser.add_argument('--override-gap-days', default=None, action='store', required=False, help='Override the permitted time gap.')
 
     args = parser.parse_args()
 
@@ -206,7 +207,11 @@ if __name__ == '__main__':
     enddate = pd.to_datetime(str(args.enddate))
     config_id = int(args.config_id)
     export_folderpath = str(args.export_folderpath)
-    njobs = int(args.njobs)
+    njobs = int(args.njobs)    
+    
+    override_gap_days = None
+    if args.override_gap_days is not None:
+        override_gap_days = int(args.override_gap_days)
 
     if args.record:
         datacube_id = get_datacube_id(
@@ -256,6 +261,7 @@ if __name__ == '__main__':
         print_messages = False,
         logger = logger,
         overwrite = args.overwrite,
+        override_gap_days = override_gap_days,
     )
 
     end_time = time.time()
