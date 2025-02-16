@@ -68,7 +68,7 @@ rule run:
         export_folderpath = lambda wc: export_folderpaths[wc.final_output],
         njobs = njobs,
         overwrite = overwrite_command,
-        record = record_command
+        record = record_command,
         override_gap_days = override_gap_days_command
 
     threads: njobs
