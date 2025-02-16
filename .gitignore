@@ -2,6 +2,8 @@
 *.DS_Store
 mysecrets.py
 data/
+temp/
+.snakemake/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

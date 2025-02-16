@@ -428,6 +428,7 @@ def crop_and_reproject(
         nodata = nodata,
         all_touched = ALL_TOUCHED,
         njobs = njobs,
+        print_messages = print_messages,
     )
 
     band_filepaths_df = band_filepaths_df[band_filepaths_df['overlaps']]
