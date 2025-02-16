@@ -117,6 +117,8 @@ def record_datacube(
     ])
 
     last_update = sqlite_db_utils.ts_to_str(ts=pd.Timestamp.now(tz='UTC'))
+    startdate = sqlite_db_utils.ts_to_str(startdate)
+    enddate = sqlite_db_utils.ts_to_str(enddate)
 
     if check_if_datacube_exists_in_record(
         roi = roi,
@@ -124,9 +126,6 @@ def record_datacube(
         enddate = enddate,
         config_id = config_id,
     )[0] and overwrite:
-        startdate = sqlite_db_utils.ts_to_str(startdate)
-        enddate = sqlite_db_utils.ts_to_str(enddate)
-
         sqlite_db_utils.update_value_in_db(
             database = config.FILEPATH_DATACUBE_CATALOG_DB,
             table = config.S2L2A_TABLE,
@@ -135,7 +134,6 @@ def record_datacube(
             col = COL_LASTUPDATE,
             update_value = last_update,
         )
-    
     else:
         sqlite_db_utils.insert_rows_to_db(
             database = config.FILEPATH_DATACUBE_CATALOG_DB,
