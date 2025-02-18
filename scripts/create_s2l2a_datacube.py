@@ -235,8 +235,8 @@ if __name__ == '__main__':
                     'Use the same export_folderpath as where it already exists.'
                 )
 
-        if not args.overwrite:
-            exit(0)
+            if not args.overwrite:
+                exit(0)
 
 
     config_desc = rc.fetch_s2l2a_config(config_id = config_id)[config_id]
