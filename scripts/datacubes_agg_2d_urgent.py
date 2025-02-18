@@ -18,6 +18,7 @@ sys.path.append('..')
 
 import config
 import datacube_ops
+import sqlite_db_utils
 
 
 def read_datacube_convert_to_2d(
@@ -48,14 +49,12 @@ if __name__ == '__main__':
         ),
         epilog = f"--- Send your complaints to {','.join(config.MAINTAINERS)} ---",
     )
-    parser.add_argument('datacube_catalog_filepath', action='store', help='Filepath of the datacube catalog.')
     parser.add_argument('datacube_ids_filepath', action='store', help='Filepath of the file containing datacube ids.')
     parser.add_argument('export_folderpath', action='store', help='Folderpath to save the outputs to.')
     parser.add_argument('-j', '--njobs', default=1, action='store', required=False, help='[default = 1] Number of parallel processes to run.')
 
     args = parser.parse_args()
 
-    datacube_catalog_filepath = str(args.datacube_catalog_filepath)
     datacube_ids_filepath = str(args.datacube_ids_filepath)
     export_folderpath = str(args.export_folderpath)
     njobs = int(args.njobs)
@@ -64,11 +63,13 @@ if __name__ == '__main__':
         datacube_ids = f.readlines()
     datacube_ids = [x[:-1] for x in datacube_ids]
     
-    datacube_catalog_gdf = gpd.read_file(datacube_catalog_filepath)
-
-    selected_datacube_catalog_gdf = datacube_catalog_gdf[
-        datacube_catalog_gdf['id'].isin(datacube_ids)
-    ]
+    selected_datacube_catalog_gdf = \
+    sqlite_db_utils.fetch_rows_from_db(
+        database = config.FILEPATH_DATACUBE_CATALOG_DB,
+        table = config.S2L2A_TABLE,
+        ids = datacube_ids,
+        id_col = 'id',
+    )
 
     if selected_datacube_catalog_gdf.shape[0] == 0:
         raise ValueError(f'None of the datacube ids present in the catalog.')
