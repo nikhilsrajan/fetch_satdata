@@ -56,7 +56,7 @@ def get_datacube_id(
     enddate:pd.Timestamp,
     config_id:int,
 ):
-    '_'.join([
+    return '_'.join([
         roi,
         startdate.strftime('%Y%m%dT%H%M%S'),
         enddate.strftime('%Y%m%dT%H%M%S'),

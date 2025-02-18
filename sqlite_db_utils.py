@@ -146,6 +146,10 @@ def sql_to_gpd_row(
     timestamp_cols:list[str] = TIMESTAMP_COLS, 
     geometry_cols:list[str] = GEOMETRY_COLS,
 )->dict:
+    if timestamp_cols is None:
+        timestamp_cols = []
+    if geometry_cols is None:
+        geometry_cols = []
     reformatted_dict = {}
     for k, v in row_dict.items():
         if k in timestamp_cols:

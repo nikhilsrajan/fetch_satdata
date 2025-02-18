@@ -141,6 +141,7 @@ def query_catalog_stats(
     queried_shape = shapely.ops.unary_union(filtered_catalog_gdf['geometry'])
 
     stats['area_coverage'] = 1 - (target_shape - queried_shape).area / target_shape.area
+    stats['area_coverage'] = round(stats['area_coverage'], 4)
 
     timestamps = filtered_catalog_gdf['timestamp'].to_numpy()
     timestamps.sort()
