@@ -416,28 +416,6 @@ def crop_and_reproject(
         bands = bands,
         ext = ext,
     )
-
-    """
-    Note:
-    ----
-    This was added because it was observed that the geometry that came from the catalog
-    did not accurately predict if the target shape actually overlaps with the raster.
-    """
-    band_filepaths_df['overlaps'] = check_if_shape_overlaps_raster_parallel(
-        raster_filepaths = band_filepaths_df['filepath'],
-        shapes_gdf = shapes_gdf,
-        nodata = nodata,
-        all_touched = ALL_TOUCHED,
-        njobs = njobs,
-        print_messages = print_messages,
-    )
-
-    band_filepaths_df = band_filepaths_df[band_filepaths_df['overlaps']]
-
-    if band_filepaths_df.shape[0] == 0:
-        raise exceptions.DatacubeException(
-            'get_intersecting_band_filepaths returned 0 results.'
-        )
     
     band_filepaths_df['crs'] = band_filepaths_df['filepath'].apply(lambda x: str(get_image_crs(filepath=x)))
 
@@ -451,7 +429,11 @@ def crop_and_reproject(
     
     os.makedirs(out_folderpath, exist_ok=True)
 
-    sequence = [
+    sequence_crop = [
+        (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=ALL_TOUCHED)),
+    ]
+
+    sequence_crop_reproject_crop = [
         (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=ALL_TOUCHED)),
         (rsutils.modify_images.reproject, dict(dst_crs=dst_crs)),
         (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=ALL_TOUCHED)),
@@ -475,14 +457,34 @@ def crop_and_reproject(
             axis = 1,
         )
 
-    successes = rsutils.modify_images.modify_images(
-        src_filepaths = band_filepaths_df['filepath'],
-        dst_filepaths = band_filepaths_df['out_filepath'],
-        sequence = sequence,
+    same_crs_band_filepaths_df = band_filepaths_df[band_filepaths_df['crs'] == dst_crs]
+    diff_crs_band_filepaths_df = band_filepaths_df[band_filepaths_df['crs'] != dst_crs]
+
+    same_crs_successes = rsutils.modify_images.modify_images(
+        src_filepaths = same_crs_band_filepaths_df['filepath'],
+        dst_filepaths = same_crs_band_filepaths_df['out_filepath'],
+        sequence = sequence_crop,
         working_dir = working_dir,
         njobs = njobs,
         print_messages = print_messages,
+        raise_error = False,
     )
+    same_crs_band_filepaths_df['success'] = same_crs_successes
+
+    if diff_crs_band_filepaths_df.shape[0] > 0:
+        diff_crs_successes = rsutils.modify_images.modify_images(
+            src_filepaths = diff_crs_band_filepaths_df['filepath'],
+            dst_filepaths = diff_crs_band_filepaths_df['out_filepath'],
+            sequence = sequence_crop_reproject_crop,
+            working_dir = working_dir,
+            njobs = njobs,
+            print_messages = print_messages,
+            raise_error = False,
+        )
+        diff_crs_band_filepaths_df['success'] = diff_crs_successes
+        band_filepaths_df = pd.concat([same_crs_band_filepaths_df, diff_crs_band_filepaths_df])
+    else:
+        band_filepaths_df = same_crs_band_filepaths_df
 
     band_filepaths_df.drop(columns=['crs', 'filepath'], inplace=True)
     band_filepaths_df.rename(columns={'out_filepath': 'filepath'}, inplace=True)
@@ -501,7 +503,7 @@ def resample_to_selected_band_inplace(
     ref_filepath = band_filepath_dict[selected_band]
     sequence = [
         (rsutils.modify_images.resample_by_ref, dict(ref_filepath = ref_filepath,
-                                             resampling = resampling)),
+                                                     resampling = resampling)),
         (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True))
     ]
     filepaths = []
@@ -767,6 +769,11 @@ def create_datacube(
         print_messages = print_messages,
         ext = ext,
     )
+
+    # if any band for a given tile id has failed, then all the bands are set as failed to drop the tile id
+    id_success_map = band_filepaths_df.groupby('id')['success'].apply(lambda x: all(list(x))).to_dict()
+    band_filepaths_df['success'] = band_filepaths_df['id'].apply(lambda x: id_success_map[x])
+    band_filepaths_df = band_filepaths_df[band_filepaths_df['success']]
 
     if logger is not None:
         logger.info(f'Resampling cropped images to resolution of {resampling_ref_band} band:')
