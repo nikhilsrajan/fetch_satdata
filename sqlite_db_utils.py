@@ -277,7 +277,7 @@ def update_value_in_db(
         connection.execute('pragma journal_mode=wal')
     
     try:
-        cursor.execute(f"UPDATE {table} SET {col} = ? WHERE {id_col} = ?", (update_value, id))
+        cursor.execute(f"UPDATE '{table}' SET {col} = ? WHERE {id_col} = ?", (update_value, id))
     except Exception as e:
         updation_success = False
         msg = f'Updation to DB failed -- {e}'
