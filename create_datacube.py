@@ -397,7 +397,6 @@ def crop_and_reproject(
     out_folderpath:str,
     satellite_folderpath:str=None, # for maintaining the same folder structure
     nodata = 0,
-    working_dir:str = None,
     njobs:int = 8,
     dst_crs = None,
     print_messages:bool = True,
@@ -496,7 +495,6 @@ def resample_to_selected_band_inplace(
     shapes_gdf:gpd.GeoDataFrame,
     resampling = rasterio.warp.Resampling.nearest,
     nodata = 0,
-    working_dir:str = None,
 ):
     ref_filepath = band_filepath_dict[selected_band]
     sequence = [
@@ -524,7 +522,6 @@ def resample_to_selected_band_inplace_by_df(
     nodata = 0,
     resampling_ref_band:str = 'B08',
     resampling = rasterio.warp.Resampling.nearest,
-    working_dir:str = None,
     njobs:int = 8,
     print_messages:bool = True,
 ):
@@ -541,7 +538,6 @@ def resample_to_selected_band_inplace_by_df(
         shapes_gdf = shapes_gdf,
         resampling = resampling,
         nodata = nodata,
-        working_dir = working_dir,
     )
 
     with mp.Pool(njobs) as p:
@@ -631,7 +627,7 @@ def resample_to_merge_master_inplace(
 
     sequence = [
         (rsutils.modify_images.resample_by_ref, dict(ref_filepath = merge_reference_filepath,
-                                             resampling = resampling)),
+                                                     resampling = resampling)),
         (rsutils.modify_images.crop, dict(shapes_gdf=shapes_gdf, nodata=nodata, all_touched=True))
     ]
 
@@ -759,7 +755,6 @@ def create_datacube(
         out_folderpath = working_dir,
         satellite_folderpath = satellite_folderpath,
         nodata = nodata,
-        working_dir = working_dir,
         njobs = njobs,
         dst_crs = dst_crs,
         print_messages = print_messages,
@@ -779,7 +774,6 @@ def create_datacube(
         nodata = nodata,
         resampling_ref_band = resampling_ref_band,
         resampling = resampling,
-        working_dir = working_dir,
         njobs = njobs,
         print_messages = print_messages,
     )
