@@ -464,7 +464,6 @@ def crop_and_reproject(
         src_filepaths = same_crs_band_filepaths_df['filepath'],
         dst_filepaths = same_crs_band_filepaths_df['out_filepath'],
         sequence = sequence_crop,
-        working_dir = working_dir,
         njobs = njobs,
         print_messages = print_messages,
         raise_error = False,
@@ -476,7 +475,6 @@ def crop_and_reproject(
             src_filepaths = diff_crs_band_filepaths_df['filepath'],
             dst_filepaths = diff_crs_band_filepaths_df['out_filepath'],
             sequence = sequence_crop_reproject_crop,
-            working_dir = working_dir,
             njobs = njobs,
             print_messages = print_messages,
             raise_error = False,
@@ -517,7 +515,6 @@ def resample_to_selected_band_inplace(
             src_filepath = filepath,
             dst_filepath = filepath,
             sequence = sequence,
-            working_dir = working_dir,
         )
 
 
@@ -642,7 +639,6 @@ def resample_to_merge_master_inplace(
         src_filepaths = band_filepaths_df['filepath'],
         dst_filepaths = band_filepaths_df['filepath'],
         sequence = sequence,
-        working_dir = working_dir,
         njobs = njobs,
         print_messages = print_messages,
     )
