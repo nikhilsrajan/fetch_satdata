@@ -52,7 +52,6 @@ def get_unary_gdf(
 def filter_catalog_db(
     catalog_db_filepath:str,
     table_name:str,
-    satellite:str, # catalog can contain multiple satellites
     startdate:datetime,
     enddate:datetime,
 ):
@@ -63,7 +62,7 @@ def filter_catalog_db(
         database = catalog_db_filepath,
         table = table_name,
         # Note: BETWEEN operator is inclusive
-        query = f"SELECT * FROM '{table_name}' WHERE (timestamp BETWEEN '{query_startdate}' AND '{query_enddate}') AND satellite == '{satellite}'"
+        query = f"SELECT * FROM '{table_name}' WHERE (timestamp BETWEEN '{query_startdate}' AND '{query_enddate}')"
     )
 
     return catalog_gdf
@@ -72,7 +71,6 @@ def filter_catalog_db(
 def filter_catalog(
     catalog_db_filepath:str,
     table_name:str,
-    satellite:str, # catalog can contain multiple satellites
     shapes_gdf:gpd.GeoDataFrame,
     startdate:datetime,
     enddate:datetime,
@@ -80,7 +78,6 @@ def filter_catalog(
     catalog_gdf = filter_catalog_db(
         catalog_db_filepath = catalog_db_filepath,
         table_name = table_name,
-        satellite = satellite,
         startdate = startdate,
         enddate = enddate,
     )
@@ -101,10 +98,20 @@ def filter_catalog(
     return filtered_catalog_gdf
 
 
+def compute_timestamp_stats(
+    timestamps:list,
+):
+    timestamps = np.array(timestamps)
+    timestamps.sort()
+    timedeltas_round = [td.round('d').days for td in (timestamps[1:] - timestamps[:-1])]
+    timedelta_days = dict(zip(*np.unique(timedeltas_round, return_counts=True)))
+    timestamp_range = (timestamps.min(), timestamps.max())
+    return timedelta_days, timestamp_range
+
+
 def query_catalog_stats(
     catalog_db_filepath:str,
     table_name:str,
-    satellite:str, # catalog can contain multiple satellites
     shapes_gdf:gpd.GeoDataFrame,
     startdate:datetime.datetime,
     enddate:datetime.datetime,
@@ -122,7 +129,6 @@ def query_catalog_stats(
     filtered_catalog_gdf = filter_catalog(
         catalog_db_filepath = catalog_db_filepath,
         table_name = table_name,
-        satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
@@ -143,13 +149,9 @@ def query_catalog_stats(
     stats['area_coverage'] = 1 - (target_shape - queried_shape).area / target_shape.area
     stats['area_coverage'] = round(stats['area_coverage'], 4)
 
-    timestamps = filtered_catalog_gdf['timestamp'].to_numpy()
-    timestamps.sort()
-    timedeltas_round = [td.round('d').days for td in (timestamps[1:] - timestamps[:-1])]
-
-    stats['timedelta_days'] = dict(zip(*np.unique(timedeltas_round, return_counts=True)))
-
-    stats['timestamp_range'] = (timestamps.min(), timestamps.max())
+    stats['timedelta_days'], stats['timestamp_range'] = compute_timestamp_stats(
+        timestamps = filtered_catalog_gdf['timestamp'].tolist()
+    )
 
     files = []
     for _files in filtered_catalog_gdf['files']:
@@ -164,7 +166,6 @@ def check_if_there_are_files_missing(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_db_filepath:str,
     table_name:str,
-    satellite:str, # catalog can contain multiple satellites
     startdate:datetime.datetime,
     enddate:datetime.datetime,
     files:list[str],
@@ -173,7 +174,6 @@ def check_if_there_are_files_missing(
     stats = query_catalog_stats(
         catalog_db_filepath = catalog_db_filepath,
         table_name = table_name,
-        satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
@@ -240,7 +240,6 @@ def get_intersecting_band_filepaths(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_db_filepath:str,
     table_name:str,
-    satellite:str, # catalog can contain multiple satellites
     startdate:datetime,
     enddate:datetime,
     bands:list[str],
@@ -256,7 +255,6 @@ def get_intersecting_band_filepaths(
     catalog_gdf = filter_catalog(
         catalog_db_filepath = catalog_db_filepath,
         table_name = table_name,
-        satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
@@ -390,7 +388,6 @@ def crop_and_reproject(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_db_filepath:str,
     table_name:str,
-    satellite:str, # catalog can contain multiple satellites
     startdate:datetime.datetime,
     enddate:datetime.datetime,
     bands:list[str],
@@ -411,7 +408,6 @@ def crop_and_reproject(
         enddate = enddate,
         catalog_db_filepath = catalog_db_filepath,
         table_name = table_name,
-        satellite = satellite,
         bands = bands,
         ext = ext,
     )
@@ -710,7 +706,6 @@ def create_datacube(
     shapes_gdf:gpd.GeoDataFrame,
     catalog_db_filepath:str,
     table_name:str,
-    satellite:str, # catalog can contain multiple satellites
     startdate:datetime.datetime,
     enddate:datetime.datetime,
     bands:list[str],
@@ -732,7 +727,6 @@ def create_datacube(
     missing_files_action(
         catalog_db_filepath = catalog_db_filepath,
         table_name = table_name,
-        satellite = satellite,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
@@ -748,7 +742,6 @@ def create_datacube(
         shapes_gdf = shapes_gdf,
         catalog_db_filepath = catalog_db_filepath,
         table_name = table_name,
-        satellite = satellite,
         startdate = startdate,
         enddate = enddate,
         bands = bands,

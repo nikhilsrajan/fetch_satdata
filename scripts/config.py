@@ -52,6 +52,7 @@ FOLDERPATH_FETCH_CATALOG_CACHE = os.path.join(CURRENT_DIRECTORY, '../data/fetch_
 FOLDERPATH_DATACUBES = os.path.join(CURRENT_DIRECTORY, '../data/datacubes')
 FOLDERPATH_DATACUBES_S2L1C = os.path.join(CURRENT_DIRECTORY, '../data/datacubes/sentinel-2-l1c')
 FOLDERPATH_DATACUBES_S2L2A = os.path.join(CURRENT_DIRECTORY, '../data/datacubes/sentinel-2-l2a')
+FOLDERPATH_ESA = os.path.join(CURRENT_DIRECTORY, '../data/esa')
 
 FILEPATH_SATELLITE_CATALOG_DB = os.path.join(FOLDERPATH_SATELLITE, 'catalog.db')
 FILEPATH_DATACUBE_CATALOG_DB = os.path.join(FOLDERPATH_DATACUBES, 'catalog.db')

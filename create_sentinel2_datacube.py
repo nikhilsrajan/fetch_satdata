@@ -440,7 +440,6 @@ def create_s2l1c_datacube(
     create_datacube.create_datacube(
         shapes_gdf = shapes_gdf,
         catalog_filepath = satellite_catalog_filepath,
-        satellite = SATELLITE,
         startdate = startdate,
         enddate = enddate,
         bands = bands,
@@ -463,7 +462,6 @@ def create_s2l1c_datacube(
     extract_metadata.extract_s2l1c_mean_sun_angle(
         shapes_gdf = shapes_gdf,
         catalog_filepath = satellite_catalog_filepath,
-        satellite = SATELLITE,
         startdate = startdate,
         enddate = enddate,
         print_messages = print_messages,
@@ -572,7 +570,6 @@ def create_s2l2a_datacube(
             shapes_gdf = shapes_gdf,
             catalog_db_filepath = catalog_db_filepath,
             table_name = table_name,
-            satellite = SATELLITE,
             startdate = startdate,
             enddate = enddate,
             bands = bands,
@@ -600,7 +597,6 @@ def create_s2l2a_datacube(
             shapes_gdf = shapes_gdf,
             catalog_db_filepath = catalog_db_filepath,
             table_name = table_name,
-            satellite = SATELLITE,
             startdate = startdate,
             enddate = enddate,
             print_messages = print_messages,
@@ -766,7 +762,6 @@ def create_s2l1c_datacube_and_update_catalog(
     query_stats, missing_flags = \
     create_datacube.missing_files_action(
         catalog_filepath = satellite_catalog_filepath,
-        satellite = SATELLITE,
         shapes_gdf = shapes_gdf,
         startdate = startdate,
         enddate = enddate,
