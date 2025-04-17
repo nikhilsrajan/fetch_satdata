@@ -7,6 +7,9 @@ import rasterio.warp
 import numpy as np
 import tqdm
 import time
+import shapely
+from memory_profiler import profile
+import gc
 
 import config
 from init_logger import get_logger
@@ -20,6 +23,7 @@ import cdseutils.constants
 import create_datacube
 import datacube_ops
 import rsutils.modify_images
+import rsutils.utils
 
 
 logger = get_logger()
@@ -93,6 +97,7 @@ def get_mosaiced_stack(
     ...
 
 
+@profile
 def create_tile_s2l2a_datacube(
     tileid:str,
     export_folderpath:str,
@@ -121,12 +126,19 @@ def create_tile_s2l2a_datacube(
         bands = bands,
     )
 
+    ids = tile_catalog_gdf['id'].tolist()
     timestamps = tile_catalog_gdf['timestamp'].tolist()
+    tile_geometry = shapely.unary_union(tile_catalog_gdf['geometry'])
+    tile_geometry_crs = tile_catalog_gdf.crs
 
     timedelta_days, timestamp_range = \
     create_datacube.compute_timestamp_stats(
         timestamps = timestamps
     )
+
+    """
+    TO DO: Check gap days and raise error if too much.
+    """
 
     ts_index_ranges = datacube_ops.get_mosaic_ts_index_ranges(
         timestamps = timestamps,
@@ -140,6 +152,26 @@ def create_tile_s2l2a_datacube(
     with rasterio.open(reference_filepath) as ref:
         ref_meta = ref.meta.copy()
 
+    ref_meta['nodata'] = 0
+    ref_meta['driver'] = 'GTiff'
+    ref_meta = rsutils.utils.driver_specific_meta_updates(meta = ref_meta)
+
+    metadata = {
+        'geotiff_metadata': ref_meta,
+        'mosaic_index_intervals': ts_index_ranges,
+        'previous_timestamps': timestamps,
+        'timestamps': [
+            timestamps[ts_index_range[0]] for ts_index_range in ts_index_ranges
+        ],
+        'ids': ids,
+        'bands': bands,
+        'data_shape_desc': ('timestamps', 'height', 'width', 'bands'),
+        'geometry': {
+            'shape': [tile_geometry],
+            'crs': tile_geometry_crs,
+        }
+    }
+
     H = ref_meta['height']
     W = ref_meta['width']
     B = len(bands) - 1 # without SCL
@@ -150,7 +182,7 @@ def create_tile_s2l2a_datacube(
         if band != cdseutils.constants.Bands.S2L2A.SCL
     }
 
-    pbar = tqdm.tqdm(total = (B+1)*len(timestamps))
+    # pbar = tqdm.tqdm(total = (B+1)*len(timestamps))
 
     mosaiced_stack = np.zeros(shape=(len(ts_index_ranges), H, W, B), dtype=dtype)
     for m_i, ts_index_range in enumerate(ts_index_ranges):
@@ -165,15 +197,21 @@ def create_tile_s2l2a_datacube(
             timestamp = timestamps[ts_i]
             for band in bands:
                 b_i = -1
+
                 if band != cdseutils.constants.Bands.S2L2A.SCL:
                     b_i = band_indices[band]
+
                 band_filepath = timestamp_band_filepath_dict[timestamp][band]
+
                 with rasterio.open(band_filepath) as src:
                     if src.meta['crs'] != ref_meta['crs']:
                         raise ValueError('Mismatching CRS in the tiles')
+
+                    data = src.read()
+
                     if src.meta['height'] != ref_meta['height'] or src.meta['width'] != ref_meta['width']:
                         resampled_data, _ = rsutils.modify_images.resample_by_ref_meta(
-                            data = src.read(), 
+                            data = data, 
                             profile = src.meta.copy(),
                             ref_meta = ref_meta,
                             resampling = rasterio.warp.Resampling.nearest,
@@ -182,12 +220,19 @@ def create_tile_s2l2a_datacube(
                             to_mosaic_stack[tm_i, :, :, b_i] = resampled_data
                         else:
                             SCL[tm_i] = resampled_data[0]
+
+                        del resampled_data
+
                     else:
                         if band != cdseutils.constants.Bands.S2L2A.SCL:
-                            to_mosaic_stack[tm_i, :, :, b_i] = src.read()
+                            to_mosaic_stack[tm_i, :, :, b_i] = data
                         else:
-                            SCL[tm_i] = src.read(1)
-                pbar.update()
+                            SCL[tm_i] = data[0]
+                    
+                    del data
+                
+                gc.collect()
+                # pbar.update()
 
         print('start mosaic')
         s_time = time.time()
@@ -200,9 +245,13 @@ def create_tile_s2l2a_datacube(
         e_time = time.time()
         print(f't_elapsed: {e_time - s_time:.2f} s')
 
-        del to_mosaic_stack, masked_to_mosaic_stack
+        del to_mosaic_stack, masked_to_mosaic_stack, SCL
 
+        gc.collect()
+
+    os.makedirs(export_folderpath, exist_ok=True)
     np.save(os.path.join(export_folderpath, 'datacube.npy'), mosaiced_stack)
+    np.save(os.path.join(export_folderpath, 'metadata.pickle.npy'), metadata, allow_pickle=True)
 
 
 
