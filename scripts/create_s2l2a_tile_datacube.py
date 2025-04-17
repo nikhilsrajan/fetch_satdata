@@ -256,6 +256,8 @@ def create_tile_s2l2a_datacube(
 
 
 if __name__ == '__main__':
+    start_time = time.time()
+
     parser = argparse.ArgumentParser(
         prog = 'python create_s2l2a_datacube.py',
         description = (
@@ -309,3 +311,7 @@ if __name__ == '__main__':
         overwrite = args.overwrite,
         override_gap_days = override_gap_days,
     )
+
+    end_time = time.time()
+
+    print(f't_elapsed: {end_time - start_time:.2f}s')
