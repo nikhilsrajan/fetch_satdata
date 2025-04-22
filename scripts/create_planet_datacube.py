@@ -128,5 +128,5 @@ if __name__ == '__main__':
     del bands_stack
     gc.collect()
 
-    done_text_filepath = os.path.join(export_folderpath, 'done.npy')
+    done_text_filepath = os.path.join(export_folderpath, 'done.txt')
     create_a_blank_file(done_text_filepath)

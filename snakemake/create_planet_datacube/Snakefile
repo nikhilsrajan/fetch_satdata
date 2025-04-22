@@ -3,39 +3,25 @@ import os
 
 
 input_df = pd.read_csv(config['input_csv'])
-njobs = int(config['njobs'])
-root_folderpath = config['root_folderpath']
+timestamp_col = str(config['timestamp_col'])
+filepath_col = str(config['filepath_col'])
 
-overwrite_command = ''
-if 'rerun' in config.keys():
-    if bool(config['rerun']):
-        overwrite_command = '--overwrite'
-
-record_command = ''
-if 'record' in config.keys():
-    if bool(config['record']):
-        record_command = '--record'
-
-override_gap_days_command = ''
-if 'override_gap_days' in config.keys():
-    override_gap_days_command = f"--override-gap-days {config['override_gap_days']}"
-
-
-rois = {}
+shapefilepaths = {}
+catalog_filepaths = {}
 startdates = {}
 enddates = {}
-config_ids = {}
 export_folderpaths = {}
 final_outputs = []
 
-FINAL_OUTFILENAME = '3_raw_datacube_processed.txt' # see: function create_s2l2a_datacube in create_sentinel2_datacube.py
+FINAL_OUTFILENAME = 'done.txt' # see: function create_planet_datacube.py
 
 
 for index, row in input_df.iterrows():
     roi = row['roi']
+    catalog_filepath = row['catalog_filepath']
+    shapefilepath = row['shapefilepath']
     startdate = pd.to_datetime(row['startdate'])
     enddate = pd.to_datetime(row['enddate'])
-    config_id = str(row['config_id'])
     export_folderpath = os.path.join(
         root_folderpath,
         roi,
@@ -44,10 +30,10 @@ for index, row in input_df.iterrows():
     )
     export_folderpath = os.path.abspath(export_folderpath)
     final_output = os.path.join(export_folderpath, FINAL_OUTFILENAME)
-    rois[final_output] = roi
+    shapefilepaths[final_output] = shapefilepath
+    catalog_filepaths[final_output] = catalog_filepath
     startdates[final_output] = startdate.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + 'Z'
     enddates[final_output] = enddate.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + 'Z'
-    config_ids[final_output] = config_id
     export_folderpaths[final_output] = export_folderpath
     final_outputs.append(final_output)
 
@@ -61,29 +47,25 @@ rule run:
         '{final_output}'
 
     params:
-        roi = lambda wc: rois[wc.final_output],
+        shapefilepath = lambda wc: shapefilepaths[wc.final_output],
+        catalog_filepath = lambda wc: catalog_filepaths[wc.final_output],
         startdate = lambda wc: startdates[wc.final_output],
         enddate = lambda wc: enddates[wc.final_output],
         config_id = lambda wc: config_ids[wc.final_output],
         export_folderpath = lambda wc: export_folderpaths[wc.final_output],
-        njobs = njobs,
-        overwrite = overwrite_command,
-        record = record_command,
-        override_gap_days = override_gap_days_command
+        param_timestamp_col = timestamp_col
+        param_filepath_col = filepath_col
 
-    threads: njobs
+    threads: 1
 
     shell:
         (
-            "python ../scripts/create_s2l2a_datacube.py "
-            "{params.roi} "
+            "python ../../scripts/create_planet_datacube.py "
+            "{params.shapefilepath} "
+            "{params.catalog_filepath} "
+            "{params.param_timestamp_col} "
+            "{params.param_filepath_col} "
             "{params.startdate} "
             "{params.enddate} "
-            "{params.config_id} "
             "{params.export_folderpath} "
-            "--verbose "
-            "--njobs {params.njobs} "
-            "{params.overwrite} "
-            "{params.record} "
-            "{params.override_gap_days} "
         )
