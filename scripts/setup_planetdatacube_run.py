@@ -165,8 +165,8 @@ if __name__ == "__main__":
         export_folderpath, images_count, cropped_shape in outputs:
 
         data['shapefilepath'].append(shape_filepath)
-        data['startdate'].append(actual_startdate)
-        data['enddate'].append(actual_enddate)
+        data['startdate'].append(actual_startdate.strftime('%Y-%m-%d'))
+        data['enddate'].append(actual_enddate.strftime('%Y-%m-%d'))
         data['catalog_filepath'].append(subcatalog_filepath)
         data['export_folderpath'].append(export_folderpath)
         data['images_count'].append(images_count)
