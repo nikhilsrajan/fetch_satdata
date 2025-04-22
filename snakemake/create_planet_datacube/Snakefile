@@ -22,12 +22,7 @@ for index, row in input_df.iterrows():
     shapefilepath = row['shapefilepath']
     startdate = pd.to_datetime(row['startdate'])
     enddate = pd.to_datetime(row['enddate'])
-    export_folderpath = os.path.join(
-        root_folderpath,
-        roi,
-        f"{startdate.strftime('%Y%m%dT%H%M%S')}_{enddate.strftime('%Y%m%dT%H%M%S')}",
-        config_id,
-    )
+    export_folderpath = row['export_folderpath']
     export_folderpath = os.path.abspath(export_folderpath)
     final_output = os.path.join(export_folderpath, FINAL_OUTFILENAME)
     shapefilepaths[final_output] = shapefilepath
