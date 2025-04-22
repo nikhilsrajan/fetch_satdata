@@ -96,8 +96,8 @@ if __name__ == '__main__':
     shape_gdf = gpd.read_file(args.shapefilepath)
     timestamp_col = str(args.timestamp_col)
     filepath_col = str(args.filepath_col)
-    startdate = pd.to_datetime(str(args.startdate))
-    enddate = pd.to_datetime(str(args.enddate))
+    startdate = pd.Timestamp(str(args.startdate))
+    enddate = pd.Timestamp(str(args.enddate))
     export_folderpath = str(args.export_folderpath)
 
     filtered_catalog_gdf = get_filtered_catalog(

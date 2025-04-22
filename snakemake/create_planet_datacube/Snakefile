@@ -17,7 +17,6 @@ FINAL_OUTFILENAME = 'done.txt' # see: function create_planet_datacube.py
 
 
 for index, row in input_df.iterrows():
-    roi = row['roi']
     catalog_filepath = row['catalog_filepath']
     shapefilepath = row['shapefilepath']
     startdate = pd.to_datetime(row['startdate'])
@@ -27,8 +26,8 @@ for index, row in input_df.iterrows():
     final_output = os.path.join(export_folderpath, FINAL_OUTFILENAME)
     shapefilepaths[final_output] = shapefilepath
     catalog_filepaths[final_output] = catalog_filepath
-    startdates[final_output] = startdate.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + 'Z'
-    enddates[final_output] = enddate.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + 'Z'
+    startdates[final_output] = startdate.strftime('%Y-%m-%d')
+    enddates[final_output] = enddate.strftime('%Y-%m-%d')
     export_folderpaths[final_output] = export_folderpath
     final_outputs.append(final_output)
 
@@ -46,9 +45,8 @@ rule run:
         catalog_filepath = lambda wc: catalog_filepaths[wc.final_output],
         startdate = lambda wc: startdates[wc.final_output],
         enddate = lambda wc: enddates[wc.final_output],
-        config_id = lambda wc: config_ids[wc.final_output],
         export_folderpath = lambda wc: export_folderpaths[wc.final_output],
-        param_timestamp_col = timestamp_col
+        param_timestamp_col = timestamp_col,
         param_filepath_col = filepath_col
 
     threads: 1
