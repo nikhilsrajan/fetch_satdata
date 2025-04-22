@@ -1,0 +1,89 @@
+import pandas as pd
+import os
+
+
+input_df = pd.read_csv(config['input_csv'])
+njobs = int(config['njobs'])
+root_folderpath = config['root_folderpath']
+
+overwrite_command = ''
+if 'rerun' in config.keys():
+    if bool(config['rerun']):
+        overwrite_command = '--overwrite'
+
+record_command = ''
+if 'record' in config.keys():
+    if bool(config['record']):
+        record_command = '--record'
+
+override_gap_days_command = ''
+if 'override_gap_days' in config.keys():
+    override_gap_days_command = f"--override-gap-days {config['override_gap_days']}"
+
+
+rois = {}
+startdates = {}
+enddates = {}
+config_ids = {}
+export_folderpaths = {}
+final_outputs = []
+
+FINAL_OUTFILENAME = '3_raw_datacube_processed.txt' # see: function create_s2l2a_datacube in create_sentinel2_datacube.py
+
+
+for index, row in input_df.iterrows():
+    roi = row['roi']
+    startdate = pd.to_datetime(row['startdate'])
+    enddate = pd.to_datetime(row['enddate'])
+    config_id = str(row['config_id'])
+    export_folderpath = os.path.join(
+        root_folderpath,
+        roi,
+        f"{startdate.strftime('%Y%m%dT%H%M%S')}_{enddate.strftime('%Y%m%dT%H%M%S')}",
+        config_id,
+    )
+    export_folderpath = os.path.abspath(export_folderpath)
+    final_output = os.path.join(export_folderpath, FINAL_OUTFILENAME)
+    rois[final_output] = roi
+    startdates[final_output] = startdate.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + 'Z'
+    enddates[final_output] = enddate.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + 'Z'
+    config_ids[final_output] = config_id
+    export_folderpaths[final_output] = export_folderpath
+    final_outputs.append(final_output)
+
+
+rule all:
+    input:
+        expand('{final_output}', final_output=final_outputs)
+
+rule run:
+    output:
+        '{final_output}'
+
+    params:
+        roi = lambda wc: rois[wc.final_output],
+        startdate = lambda wc: startdates[wc.final_output],
+        enddate = lambda wc: enddates[wc.final_output],
+        config_id = lambda wc: config_ids[wc.final_output],
+        export_folderpath = lambda wc: export_folderpaths[wc.final_output],
+        njobs = njobs,
+        overwrite = overwrite_command,
+        record = record_command,
+        override_gap_days = override_gap_days_command
+
+    threads: njobs
+
+    shell:
+        (
+            "python ../../scripts/create_s2l2a_datacube.py "
+            "{params.roi} "
+            "{params.startdate} "
+            "{params.enddate} "
+            "{params.config_id} "
+            "{params.export_folderpath} "
+            "--verbose "
+            "--njobs {params.njobs} "
+            "{params.overwrite} "
+            "{params.record} "
+            "{params.override_gap_days} "
+        )
