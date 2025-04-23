@@ -7,6 +7,8 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 import gc
+import rasterio.io
+import rasterio.merge
 
 import config
 
@@ -46,20 +48,46 @@ def create_datacube(
     filepath_col:str,
     shape_gdf:gpd.GeoDataFrame,
 ):
-    filtered_catalog_gdf = filtered_catalog_gdf.sort_values(by=timestamp_col, ascending=True)
+    timestamp_filepaths_list = filtered_catalog_gdf.groupby(
+        timestamp_col
+    )[filepath_col].apply(list).to_dict()
+    
+    timestamps = filtered_catalog_gdf[timestamp_col].unique().tolist()
+    timestamps.sort()
     
     bands_stack = []
-    for index, row in filtered_catalog_gdf.iterrows():
-        filepath = row[filepath_col]
-        cropped_imarray, _ = rsutils.utils.crop_tif(
-            src_filepath = filepath,
-            shapes_gdf = shape_gdf,
-            nodata = 0,
-            all_touched = True,
-        )
-        bands_stack.append(cropped_imarray.copy())
-        del cropped_imarray
-    
+
+    for ts in timestamps:
+        filepaths = timestamp_filepaths_list[ts]
+        if len(filepaths) == 1:
+            cropped_imarray, cropped_meta = rsutils.utils.crop_tif(
+                src_filepath = filepaths[0],
+                shapes_gdf = shape_gdf,
+                nodata = 0,
+                all_touched = True,
+            )
+            bands_stack.append(cropped_imarray.copy())
+            del cropped_imarray
+        else:
+            memfiles = []
+            for filepath in filepaths:
+                cropped_imarray, cropped_meta = rsutils.utils.crop_tif(
+                    src_filepath = filepaths[0],
+                    shapes_gdf = shape_gdf,
+                    nodata = 0,
+                    all_touched = True,
+                )
+                memfile = rasterio.io.MemoryFile()
+                with memfile.open(**cropped_meta) as dataset:
+                    dataset.write(cropped_imarray)
+                memfiles.append(memfile)
+            merged_ndarray, _ = rasterio.merge.merge(
+                [memfile.open() for memfile in memfiles], nodata = 0,
+            )
+            del memfiles
+            bands_stack.append(merged_ndarray.copy())
+            del merged_ndarray
+
     bands_stack = np.stack(bands_stack, axis=-1)
     return bands_stack
 
@@ -71,7 +99,7 @@ if __name__ == '__main__':
             "Script to create planet datacube. This script would be run with snakemake for "
             "parallelisation. Thus this script is to create a single plant datacube. \n"
             "This script makes the following assumptions: \n"
-            "   1. Each polygon fell exactly into one planetdata tile. \n"
+            "   1. Each polygon fell exactly into one planetdata tile. (this assumption didn't hold true).\n"
             "   2. The band order and the crs across all the images are the same. \n"
             "These assumption was acertained when the input csv was created "
             "using setup_planetdatacube_run.py where we found that for Malawi, every polygon "
