@@ -303,7 +303,7 @@ def drop_bands(
 
 def area_median(
     datacube:np.ndarray,
-    metadata:dict,
+    metadata:dict = None,
     mask_value:int = 0,
 ):
     dtype = datacube.dtype
@@ -316,8 +316,10 @@ def area_median(
     mosaiced_datacube = np.expand_dims(np.nanmedian(datacube, axis=(1,2)), axis=(1,2))
     mosaiced_datacube[np.isnan(mosaiced_datacube)] = mask_value
     mosaiced_datacube = mosaiced_datacube.astype(dtype)
-
-    mosaiced_metadata = copy.deepcopy(metadata)
-    mosaiced_metadata['previous_height_width'] = (height, width)
+    
+    mosaiced_metadata = None
+    if metadata is not None:
+        mosaiced_metadata = copy.deepcopy(metadata)
+        mosaiced_metadata['previous_height_width'] = (height, width)
 
     return mosaiced_datacube, mosaiced_metadata

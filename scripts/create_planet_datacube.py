@@ -72,7 +72,7 @@ def create_datacube(
             memfiles = []
             for filepath in filepaths:
                 cropped_imarray, cropped_meta = rsutils.utils.crop_tif(
-                    src_filepath = filepaths[0],
+                    src_filepath = filepath,
                     shapes_gdf = shape_gdf,
                     nodata = 0,
                     all_touched = True,
