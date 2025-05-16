@@ -196,7 +196,7 @@ if __name__ == '__main__':
     }
 
     datacube_filepath = os.path.join(export_folderpath, 'datacube.npy')
-    metadata_filepath = os.path.join(export_folderpath, 'metadata.npy.pickle')
+    metadata_filepath = os.path.join(export_folderpath, 'metadata.pickle.npy')
     np.save(datacube_filepath, bands_stack)
     np.save(metadata_filepath, metadata, allow_pickle=True)
     
