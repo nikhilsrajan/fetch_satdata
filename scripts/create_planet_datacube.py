@@ -42,6 +42,12 @@ def get_filtered_catalog(
     return filtered_catalog_gdf
 
 
+def get_descriptions(filepath):
+    with rasterio.open(filepath) as src:
+        desc = src.descriptions
+    return desc
+
+
 def create_datacube(
     filtered_catalog_gdf:gpd.GeoDataFrame,
     timestamp_col:str,
@@ -57,9 +63,18 @@ def create_datacube(
     
     bands_stack = []
 
+    prev_desc = None
+    meta = None
+
     for ts in timestamps:
         filepaths = timestamp_filepaths_list[ts]
         if len(filepaths) == 1:
+            cur_desc = get_descriptions(filepath=filepaths[0])
+            if prev_desc is None:
+                prev_desc = cur_desc
+            elif prev_desc != cur_desc:
+                raise ValueError(f'Description mismatch. prev_desc={prev_desc}, cur_desc={cur_desc}')
+
             cropped_imarray, cropped_meta = rsutils.utils.crop_tif(
                 src_filepath = filepaths[0],
                 shapes_gdf = shape_gdf,
@@ -68,9 +83,18 @@ def create_datacube(
             )
             bands_stack.append(cropped_imarray.copy())
             del cropped_imarray
+
+            if meta is None:
+                meta = cropped_meta
         else:
             memfiles = []
             for filepath in filepaths:
+                cur_desc = get_descriptions(filepath=filepath)
+                if prev_desc is None:
+                    prev_desc = cur_desc
+                elif prev_desc != cur_desc:
+                    raise ValueError(f'Description mismatch. prev_desc={prev_desc}, cur_desc={cur_desc}')
+                
                 cropped_imarray, cropped_meta = rsutils.utils.crop_tif(
                     src_filepath = filepath,
                     shapes_gdf = shape_gdf,
@@ -81,15 +105,25 @@ def create_datacube(
                 with memfile.open(**cropped_meta) as dataset:
                     dataset.write(cropped_imarray)
                 memfiles.append(memfile)
-            merged_ndarray, _ = rasterio.merge.merge(
+
+            merged_ndarray, merged_transform = rasterio.merge.merge(
                 [memfile.open() for memfile in memfiles], nodata = 0,
             )
+
+            if meta is None:
+                meta = cropped_meta
+                _, height, width = merged_ndarray.shape
+                meta['height'] = height
+                meta['width'] = width
+                meta['transform'] = merged_transform
+
             del memfiles
             bands_stack.append(merged_ndarray.copy())
             del merged_ndarray
 
     bands_stack = np.stack(bands_stack, axis=-1)
-    return bands_stack
+    bands_stack = bands_stack.swapaxes(0, -1) # axis: timestamps, height, width, bands
+    return bands_stack, timestamps, meta, prev_desc
 
 
 if __name__ == '__main__':
@@ -143,15 +177,28 @@ if __name__ == '__main__':
             'planet datacube creation. '
         )
 
-    bands_stack = create_datacube(
+    bands_stack, timestamps, meta, prev_desc = create_datacube(
         filtered_catalog_gdf = filtered_catalog_gdf,
         timestamp_col = timestamp_col,
         filepath_col = filepath_col,
         shape_gdf = shape_gdf,
     )
 
+    metadata = {
+        'geotiff_metadata': meta,
+        'timestamps': timestamps,
+        'bands': prev_desc,
+        'data_shape_desc': ('timestamps', 'height', 'width', 'bands'),
+        'geometry': {
+            'shape': shape_gdf['geometry'][0],
+            'crs': shape_gdf.crs,
+        }
+    }
+
     datacube_filepath = os.path.join(export_folderpath, 'datacube.npy')
+    metadata_filepath = os.path.join(export_folderpath, 'metadata.npy.pickle')
     np.save(datacube_filepath, bands_stack)
+    np.save(metadata_filepath, metadata, allow_pickle=True)
     
     del bands_stack
     gc.collect()
