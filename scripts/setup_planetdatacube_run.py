@@ -101,12 +101,12 @@ if __name__ == "__main__":
     parser.add_argument('catalog_filepath', help='Filepath to the catalog of satellite images.')
     parser.add_argument('shapefilepath', help="shapefile containing polygons along with a unique id for which to create input csv.")
     parser.add_argument('id_col', help="id column in the shapefile")
-    parser.add_argument('label_col', help="Label column in the shapefile")
     parser.add_argument('timestamp_col', help="Timestamp column in the catalog")
     parser.add_argument('filepath_col', help="Filepath column in the catalog")
     parser.add_argument('startdate', help='style: 2024-08-20 or 2024-08-20T13:54:40.022Z')
     parser.add_argument('enddate', help='style: 2024-08-20 or 2024-08-20T13:54:40.022Z')
     parser.add_argument('run_folderpath', help='Folderpath where the outputs are to be created.')
+    parser.add_argument('--label_col', required=False, default=None, help="Label column in the shapefile")
     parser.add_argument('-j', '--njobs', required=False, action='store', default=1, help='[default = 1] Number of parallel jobs')
 
     args = parser.parse_args()
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     catalog_gdf = gpd.read_file(args.catalog_filepath)
     shapes_gdf = gpd.read_file(args.shapefilepath)
     id_col = str(args.id_col)
-    label_col = str(args.label_col)
+    label_col = args.label_col
     timestamp_col = str(args.timestamp_col)
     filepath_col = str(args.filepath_col)
     startdate = pd.to_datetime(str(args.startdate))
@@ -128,11 +128,15 @@ if __name__ == "__main__":
         gpd.GeoDataFrame(data = {
             'geometry': [row['geometry']],
             COL_ID: [row[id_col]],
-            COL_LABEL: [row[label_col]],
         }, crs=shapes_gdf.crs)
         for _, row in shapes_gdf.iterrows()
     ]
 
+    if label_col is not None:
+        labels = shapes_gdf[label_col].to_list()
+        for i in range(len(shape_gdfs)):
+            shape_gdfs[i][COL_LABEL] = labels[i]
+ 
     setup_single_partial = functools.partial(
         setup_single,
         catalog_gdf = catalog_gdf,
