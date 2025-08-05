@@ -31,6 +31,9 @@ def setup_single(
     check_cropability:bool = False,
     raise_error:bool = True,
 ):
+    # forced convertion of invalid geometry to valid
+    shape_gdf['geometry'] = shape_gdf['geometry'].buffer(0)
+
     daterange_catalog_gdf = catalog_gdf[
         (catalog_gdf[timestamp_col] >= startdate) &
         (catalog_gdf[timestamp_col] <= enddate)
@@ -160,10 +163,16 @@ if __name__ == "__main__":
         'enddate': [],
         'catalog_filepath': [],
         'export_folderpath': [],
+        'datacube_filepath': [],
         'images_count': [],
         'cropped_shape': [],
+        COL_ID: [],
     }
 
+    if label_col is not None:
+        data[COL_LABEL] = []
+
+    i = 0
     for shape_filepath, actual_startdate, \
         actual_enddate, subcatalog_filepath, \
         export_folderpath, images_count, cropped_shape in outputs:
@@ -173,8 +182,15 @@ if __name__ == "__main__":
         data['enddate'].append(actual_enddate.strftime('%Y-%m-%d'))
         data['catalog_filepath'].append(subcatalog_filepath)
         data['export_folderpath'].append(export_folderpath)
+        data['datacube_filepath'].append(os.path.join(export_folderpath, 'datacube.npy'))
         data['images_count'].append(images_count)
         data['cropped_shape'].append(cropped_shape)
+
+        data[COL_ID].append(shape_gdfs[i][COL_ID][0])
+        if label_col is not None:
+            data[COL_LABEL].append(shape_gdfs[i][COL_LABEL][0])
+
+        i += 1
     
     input_df = pd.DataFrame(data=data)
     input_df['added_on'] = pd.Timestamp.now(tz='UTC')
