@@ -42,7 +42,6 @@ for group_id in unique_group_ids:
 
     memfiles = rsutils.modify_images.images_to_memfiles(
         data_profile_list = data_profile_list,
-        njobs = NJOBS,
     )
 
     merged_ndarray, merged_transform = rasterio.merge.merge(
