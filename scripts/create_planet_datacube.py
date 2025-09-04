@@ -1,6 +1,6 @@
 import os
 
-CURRENT_DIRECTORY = os.path.dirname(__file__)
+CUR_DIR = os.path.dirname(__file__)
 
 import argparse
 import geopandas as gpd
@@ -13,7 +13,7 @@ import rasterio.merge
 import config
 
 import sys
-sys.path.append(os.path.join(CURRENT_DIRECTORY, '..'))
+sys.path.append(os.path.join(CUR_DIR, '..'))
 
 import rsutils.utils
 

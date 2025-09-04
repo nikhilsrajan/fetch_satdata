@@ -4,3 +4,4 @@ colorlog
 snakemake
 pulp==2.7.0  # Pinned for snakemake
 memory_profiler
+rasterstats
