@@ -38,24 +38,10 @@ for group_id in unique_group_ids:
         njobs = NJOBS,
     )
 
-    merged_profile = data_profile_list[0][1].copy()
-
-    memfiles = rsutils.modify_images.images_to_memfiles(
+    merged_data, merged_profile = rsutils.modify_images.merge_inplace(
         data_profile_list = data_profile_list,
-    )
-
-    merged_ndarray, merged_transform = rasterio.merge.merge(
-        [memfile.open() for memfile in memfiles], 
         nodata = NODATA,
     )
-
-    merged_profile.update({
-        'count': merged_ndarray.shape[0],
-        'height': merged_ndarray.shape[1],
-        'width': merged_ndarray.shape[2],
-        'transform': merged_transform,
-        'compress': 'lzw',
-    })
 
     merged_profile = rsutils.utils.driver_specific_meta_updates(
         meta=merged_profile, driver='GTiff'
@@ -66,6 +52,6 @@ for group_id in unique_group_ids:
         'w', 
         **merged_profile,
     ) as dst:
-        dst.write(merged_ndarray)
+        dst.write(merged_data)
 
-    del memfiles, data_profile_list
+    del data_profile_list
