@@ -131,15 +131,7 @@ if __name__ == '__main__':
         prog = 'python create_planetdatacube.py',
         description = (
             "Script to create planet datacube. This script would be run with snakemake for "
-            "parallelisation. Thus this script is to create a single plant datacube. \n"
-            "This script makes the following assumptions: \n"
-            "   1. Each polygon fell exactly into one planetdata tile. (this assumption didn't hold true).\n"
-            "   2. The band order and the crs across all the images are the same. \n"
-            "These assumption was acertained when the input csv was created "
-            "using setup_planetdatacube_run.py where we found that for Malawi, every polygon "
-            "fell into exactly one tile. This assumption makes us uncomplicate the script and "
-            "avoid many operations like resampling and merging. In the situation this assumption "
-            "becomes invalid, changes would be made. Until then YAGNI FTW."
+            "parallelisation. Thus this script is to create a single plant datacube."
         ),
         epilog = f"--- Send your complaints to {','.join(config.MAINTAINERS)} ---",
     )

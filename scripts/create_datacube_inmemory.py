@@ -408,6 +408,7 @@ def create_datacube(
     scl_mask_classes:list[int],
     bands:list[str],
     reference_band:str,
+    export_folderpath:str,
     logger:logging.Logger = None,
     print_messages:bool = True,
     if_missing_files = 'raise_error',
@@ -446,8 +447,6 @@ def create_datacube(
         njobs = njobs_load_images,
     )
 
-    print(catalog_gdf)
-
     timer.stop('load_images')
 
     timer.start('get_dst_crs')
@@ -458,6 +457,7 @@ def create_datacube(
     timer.stop('get_dst_crs')
 
     timer.start('generate_reference_profile')
+    
     # generate reference profile = merged profile
 
     ref_band_indices = catalog_gdf[catalog_gdf['band'] == reference_band]['image_index']
@@ -469,7 +469,6 @@ def create_datacube(
         nodata = NODATA,
     )
 
-    print('reference_profile =', reference_profile)
     timer.stop('generate_reference_profile')
 
     print(f'set(shapes) = {set([data.shape for data, _ in data_profile_list])}')
@@ -534,7 +533,6 @@ def create_datacube(
     timer.stop('create_datacube')
 
     print('datacube.shape =', datacube.shape)
-    print('metadata =', metadata)
 
     timer.start('cloud mask + median mosaic')
 
@@ -551,11 +549,16 @@ def create_datacube(
         logger = logger,
     )
 
+    print('datacube.shape =', datacube.shape)
+
     timer.stop('cloud mask + median mosaic')
 
-    print('datacube.shape =', datacube.shape)
-    print('metadata =', metadata)
 
+    timer.start('save datacube')
+    os.makedirs(export_folderpath, exist_ok=True)
+    np.save(os.path.join(export_folderpath, 'datacube.npy'), datacube)
+    np.save(os.path.join(export_folderpath, 'metadata.pickle.npy'), metadata, allow_pickle=True)
+    timer.stop('save datacube')
 
 
 # helper
@@ -632,6 +635,7 @@ SCL_MASK_CLASSES = [
     9,  # Cloud high probability
     10, # Thin cirrus
 ]
+EXPORT_FOLDERPATH = '/gpfs/data1/cmongp2/sasirajann/fetch_satdata/data/test_datacubes/17b4b24/'
 
 catalog_gdf = gpd.read_file(CATALOG_FILEPATH)
 
@@ -666,7 +670,8 @@ create_datacube(
     reference_band = cdseutils.constants.Bands.S2L2A.B08,
     logger = get_logger(),
     njobs = 1,
-    njobs_load_images = 1,
+    njobs_load_images = 100,
+    export_folderpath = EXPORT_FOLDERPATH,
 )
 
 timer.stop('all')
