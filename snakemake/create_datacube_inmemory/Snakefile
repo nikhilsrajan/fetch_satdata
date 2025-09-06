@@ -1,5 +1,13 @@
 import pandas as pd
 import os
+import time
+from zlib import adler32
+
+
+def jitter(key, span=10):   # deterministic 0..(span-1)s delay
+    delay = adler32(str(key).encode()) % span
+    print(f'{key}, delay={delay}')
+    return delay
 
 
 def create_a_blank_file(filepath):
@@ -11,6 +19,7 @@ def create_a_blank_file(filepath):
 input_df = pd.read_csv(config['input_csv'])
 njobs = int(config['njobs'])
 njobs_load_images = int(config['njobs_load_images'])
+jitter_span = int(config['jitter_span'])
 
 start_outputs = {}
 shapefilepaths = {}
@@ -67,6 +76,8 @@ rule run:
     threads: 1
 
     run:
+        time.sleep(jitter(key=output._final_output, span=jitter_span))
+
         create_a_blank_file(params._start_output)
 
         shell(

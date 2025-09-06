@@ -680,6 +680,9 @@ if __name__ == '__main__':
     timer.stop('process the catalog')
 
     timer.start('all')
+
+    MAX_TIMEDELTA_DAYS = 10
+
     create_datacube(
         catalog_gdf = flattened_catalog_gdf,
         shape_gdf = shape_gdf,
@@ -693,6 +696,7 @@ if __name__ == '__main__':
         njobs = njobs,
         njobs_load_images = njobs_load_images,
         export_folderpath = export_folderpath,
+        max_timedelta_days = MAX_TIMEDELTA_DAYS,
     )
     timer.stop('all')
 
