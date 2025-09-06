@@ -81,7 +81,7 @@ def setup_single(
 
     return os.path.abspath(shapefile_filepath), \
         actual_startdate, actual_enddate, \
-        subset_catalog_filepath, \
+        os.path.abspath(subset_catalog_filepath), \
         os.path.abspath(export_folderpath), \
         images_count
 
@@ -184,8 +184,8 @@ if __name__ == "__main__":
         export_folderpath, images_count in outputs:
 
         data['shapefilepath'].append(shape_filepath)
-        data['startdate'].append(actual_startdate.strftime('%Y-%m-%d'))
-        data['enddate'].append(actual_enddate.strftime('%Y-%m-%d'))
+        data['startdate'].append(actual_startdate)
+        data['enddate'].append(actual_enddate)
         data['catalog_filepath'].append(subcatalog_filepath)
         data['export_folderpath'].append(export_folderpath)
         data['datacube_filepath'].append(os.path.join(export_folderpath, 'datacube.npy'))

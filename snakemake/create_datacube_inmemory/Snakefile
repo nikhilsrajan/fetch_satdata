@@ -1,0 +1,87 @@
+import pandas as pd
+import os
+
+
+def create_a_blank_file(filepath):
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, 'w') as h:
+        h.write(pd.Timestamp.now().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + 'Z')
+
+
+input_df = pd.read_csv(config['input_csv'])
+njobs = int(config['njobs'])
+njobs_load_images = int(config['njobs_load_images'])
+
+start_outputs = {}
+shapefilepaths = {}
+catalog_filepaths = {}
+startdates = {}
+enddates = {}
+export_folderpaths = {}
+mosaic_days = {}
+scl_mask_classes = {}
+final_outputs = []
+
+START_OUTFILENAME = 'start.txt' # creating this to keep track of how long it took for each datacube to get generated
+FINAL_OUTFILENAME = 'done.txt' # see: function create_planet_datacube.py
+
+
+for index, row in input_df.iterrows():
+    export_folderpath = os.path.abspath(row['export_folderpath'])
+    
+    start_output = os.path.join(export_folderpath, START_OUTFILENAME)
+    final_output = os.path.join(export_folderpath, FINAL_OUTFILENAME)
+    
+    start_outputs[final_output] = start_output
+    shapefilepaths[final_output] = row['shapefilepath']
+    catalog_filepaths[final_output] = row['catalog_filepath']
+    startdates[final_output] = row['startdate']
+    enddates[final_output] = row['enddate']
+    export_folderpaths[final_output] = export_folderpath
+    mosaic_days[final_output] = row['mosaic_days']
+    scl_mask_classes[final_output] = row['scl_mask_classes']
+
+    final_outputs.append(final_output)
+
+
+rule all:
+    input:
+        expand('{final_output}', final_output=final_outputs)
+
+rule run:
+    output:
+        _final_output = '{final_output}'
+
+    params:
+        _start_output = lambda wc: start_outputs[wc.final_output],
+        _shapefilepath = lambda wc: shapefilepaths[wc.final_output],
+        _catalog_filepath = lambda wc: catalog_filepaths[wc.final_output],
+        _startdate = lambda wc: startdates[wc.final_output],
+        _enddate = lambda wc: enddates[wc.final_output],
+        _export_folderpath = lambda wc: export_folderpaths[wc.final_output],
+        _mosaic_days = lambda wc: mosaic_days[wc.final_output],
+        _scl_mask_classes = lambda wc: scl_mask_classes[wc.final_output],
+        _njobs = njobs,
+        _njobs_load_images = njobs_load_images
+
+    threads: 1
+
+    run:
+        create_a_blank_file(params._start_output)
+
+        shell(
+            "python ../../scripts/create_datacube_inmemory_single.py "
+            "{params._shapefilepath} "
+            "{params._catalog_filepath} "
+            "\"{params._startdate}\" "
+            "\"{params._enddate}\" "
+            "{params._export_folderpath} "
+            "--mosaic-days {params._mosaic_days} "
+            "--scl-mask-classes {params._scl_mask_classes} "
+            "--njobs {params._njobs} "
+            "--njobs-load-images {params._njobs_load_images} "
+            "--verbose"
+        )
+
+        create_a_blank_file(output._final_output)
+    

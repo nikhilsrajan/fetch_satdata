@@ -1,0 +1,47 @@
+import pandas as pd
+import os
+
+input_df = pd.read_csv(config['input_csv'])
+
+input_filepaths = {}
+shapefilepaths = {}
+output_filepaths = {}
+final_outputs = []
+
+# FINAL_OUTFILENAME = 'masked_output.tif' # see: function create_planet_datacube.py
+
+
+for index, row in input_df.iterrows():
+    input_filepath = row['filepath']
+    shapefilepath = row['shapefilepath']
+    output_filepath = row['masked_filepath']
+
+    final_outputs.append(masked_output_filepath)
+
+    input_filepaths[masked_output_filepath] = input_filepath
+    shapefilepaths[masked_output_filepath] = shapefilepath
+    output_filepaths[masked_output_filepath] = output_filepath
+
+
+rule all:
+    input:
+        expand('{final_output}', final_output=final_outputs)
+
+rule run:
+    output:
+        '{final_output}'
+
+    params:
+        input_filepath = lambda wc: input_filepaths[wc.final_output],
+        shapefilepath = lambda wc: shapefilepaths[wc.final_output],
+        output_filepath = lambda wc: output_filepaths[wc.final_output]
+        
+    threads: 1
+
+    shell:
+        (
+            "python ../../scripts/create_masked_output.py "
+            "{params.input_filepath} "
+            "{params.shapefilepath} "
+            "{params.output_filepath} "
+        )
