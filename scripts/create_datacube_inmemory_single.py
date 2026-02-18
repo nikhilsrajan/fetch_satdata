@@ -641,7 +641,7 @@ if __name__ == '__main__':
         description = (
             "Script to create a single sentinel-2 L2A datacube inmemory. "
             "This script would be run with snakemake for parallelisation. "
-            "Thus this script is to create a single plant datacube."
+            "Thus this script is to create a single datacube."
         ),
         epilog = f"--- Send your complaints to {','.join(config.MAINTAINERS)} ---",
     )

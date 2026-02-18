@@ -10,18 +10,15 @@ final_outputs = []
 
 # FINAL_OUTFILENAME = 'masked_output.tif' # see: function create_planet_datacube.py
 
-
 for index, row in input_df.iterrows():
-    input_filepath = row['filepath']
+    input_filepath = row['output_filepath']
     shapefilepath = row['shapefilepath']
     output_filepath = row['masked_filepath']
 
-    final_outputs.append(masked_output_filepath)
+    final_outputs.append(output_filepath)
 
-    input_filepaths[masked_output_filepath] = input_filepath
-    shapefilepaths[masked_output_filepath] = shapefilepath
-    output_filepaths[masked_output_filepath] = output_filepath
-
+    input_filepaths[output_filepath] = input_filepath
+    shapefilepaths[output_filepath] = shapefilepath
 
 rule all:
     input:
@@ -34,7 +31,7 @@ rule run:
     params:
         input_filepath = lambda wc: input_filepaths[wc.final_output],
         shapefilepath = lambda wc: shapefilepaths[wc.final_output],
-        output_filepath = lambda wc: output_filepaths[wc.final_output]
+        output_filepath = lambda wc: wc.final_output
         
     threads: 1
 

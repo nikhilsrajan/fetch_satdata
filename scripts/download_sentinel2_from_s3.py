@@ -1,3 +1,4 @@
+import os
 import datetime
 import argparse
 import sentinelhub
@@ -25,7 +26,8 @@ if __name__ == '__main__':
     parser.add_argument('roi_filepath', help='/path/to/shapefile')
     parser.add_argument('startdate', help='YYYY-MM-DD')
     parser.add_argument('enddate', help='YYYY-MM-DD')
-    parser.add_argument('-l', '--level', action='store', required=False, default='l1c', help=f'[default = l1c] Level of the sentinel-2 images to download. Options: {VALID_LEVELS}')
+    parser.add_argument('-F', '--folderpath', action='store', required=False, default=config.FOLDERPATH_SATELLITE, help='/path/to/download-to')
+    parser.add_argument('-l', '--level', action='store', required=False, default='l2a', help=f'[default = l2a] Level of the sentinel-2 images to download. Options: {VALID_LEVELS}')
     parser.add_argument('--tile-limit', action='store', required=False, default=1, help='[default = 1] This is to make a user conscious about how many tiles will get downloaded. Size of each tile is about 700 MB.')
     parser.add_argument('--log-chunk', action='store', required=False, default=100, help='[default = 100] Number of files after which the catalog will be updated. Number of files is different from number of tiles as each tile contains multiple files.')
 
@@ -38,6 +40,10 @@ if __name__ == '__main__':
     upper_limit_for_number_of_tiles = int(args.tile_limit)
     chunksize_for_download_and_update_catalog = int(args.log_chunk)
 
+    root_folderpath = args.folderpath
+
+    sentinel2_local_catalog_filepath = os.path.join(root_folderpath, 'catalog_sentinel-2.geojson')
+
     level = str(args.level).lower()
     if level not in VALID_LEVELS:
         raise ValueError(f'Invalid level = {level}. level must be from {VALID_LEVELS}')
@@ -49,6 +55,7 @@ if __name__ == '__main__':
     elif level == 'l2a':
         satellite = cdseutils.constants.Bands.S2L2A.NAME
         bands = cdseutils.constants.Bands.S2L2A.ALL
+        # bands = ['B04', 'B08', 'SCL']
         collection = sentinelhub.DataCollection.SENTINEL2_L2A
     else:
         raise NotImplementedError(f'level = {level}')
@@ -60,9 +67,9 @@ if __name__ == '__main__':
         collection = collection,
         satellite = satellite,
         bands = bands,
-        sentinel2_local_catalog_filepath = config.FILEPATH_SENTINEL2_LOCAL_CATALOG,
+        sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
         catalog_save_folderpath = config.FOLDERPATH_FETCH_CATALOG_CACHE,
-        root_download_folderpath = config.FOLDERPATH_SATELLITE,
+        root_download_folderpath = root_folderpath,
         roi_filepath = roi_filepath,
         startdate = startdate,
         enddate = enddate,

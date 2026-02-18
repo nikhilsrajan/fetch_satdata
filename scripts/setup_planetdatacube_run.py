@@ -8,11 +8,6 @@ import functools
 
 import config
 
-import sys
-sys.path.append('..')
-
-import rsutils.utils
-
 
 COL_ID = 'id'
 COL_LABEL = 'label'

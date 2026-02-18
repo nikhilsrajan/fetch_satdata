@@ -5,3 +5,7 @@ snakemake
 pulp==2.7.0  # Pinned for snakemake
 memory_profiler
 rasterstats
+openpyxl
+umap-learn
+plotly
+ipywidgets
