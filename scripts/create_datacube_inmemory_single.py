@@ -1,3 +1,4 @@
+import os
 import geopandas as gpd
 import datetime
 import logging
@@ -8,20 +9,15 @@ import warnings
 import rasterio.warp
 import argparse
 
-from init_logger import get_logger
+from .init_logger import get_logger
 
-import os
-CUR_DIR = os.path.dirname(__file__)
-
-import sys
-sys.path.append(os.path.join(CUR_DIR, '..'))
-
-import exceptions
 import cdseutils.constants
 import rsutils.modify_images
-import datacube_ops
 
-import config
+import fetch_satdata.exceptions as exceptions
+import fetch_satdata.datacube_ops as datacube_ops
+
+from . import config
 
 import time
 
@@ -591,18 +587,21 @@ def flatten_catalog_gdf(
         'area_contribution': [],
     }
 
+    raster_exts = ['.jp2', '.tif']
+
     for index, row in catalog_gdf.iterrows():
         tile_id = row['id']
         folderpath = row['local_folderpath']
         timestamp = row['timestamp']
         geometry = row['geometry']
         area_contribution = row['area_contribution']
-
+        
         for file in row['files'].split(','):
-            if not file.endswith('.jp2'):
-                continue
-            band = file.removesuffix('.jp2')
-            
+            for raster_ext in raster_exts:
+                if file.endswith(raster_ext):
+                    band = file.removesuffix(raster_ext)
+                    break
+
             data['id'].append(tile_id)
             data['filepath'].append(os.path.join(folderpath, file))
             data['band'].append(band)
@@ -651,6 +650,7 @@ if __name__ == '__main__':
     parser.add_argument('startdate', help='style: 2024-08-20 or 2024-08-20T13:54:40.022Z')
     parser.add_argument('enddate', help='style: 2024-08-20 or 2024-08-20T13:54:40.022Z')
     parser.add_argument('export_folderpath', help='Folderpath where the datacube should be saved.')
+    parser.add_argument('--bands', help="Assets to be downloaded. To be passed as a comma separated integers. Example: 'B04,B08,SCL'")
     parser.add_argument('--mosaic-days', help='Mosaic interval in days. Recommended value = 20')
     parser.add_argument('--scl-mask-classes', help="Values to mask in the SCL layer. To be passed as a comma separated integers. Recommended: '0,1,3,7,8,9,10'")
     parser.add_argument('--njobs', help="Number of parallel operations to execute for parallelised steps.", type=int)
@@ -670,6 +670,7 @@ if __name__ == '__main__':
     export_folderpath = str(args.export_folderpath)
     mosaic_days = int(args.mosaic_days)
     scl_mask_classes = [int(v) for v in args.scl_mask_classes.split(',')]
+    bands = args.scl_mask_classes.split(',')
     njobs = args.njobs
     njobs_load_images = args.njobs_load_images
         
@@ -690,7 +691,7 @@ if __name__ == '__main__':
         enddate = enddate,
         mosaic_days = mosaic_days,
         scl_mask_classes = scl_mask_classes,
-        bands = cdseutils.constants.Bands.S2L2A.ALL,
+        bands = bands,
         reference_band = cdseutils.constants.Bands.S2L2A.B08,
         logger = logger,
         njobs = njobs,

@@ -3,11 +3,9 @@ import datetime
 import argparse
 import sentinelhub
 
-import sys
-sys.path.append('..')
+from . import config
+import fetch_satdata.sentinel2_via_s3 as sentinel2_via_s3
 
-import config
-import sentinel2_via_s3
 import cdseutils.utils
 
 

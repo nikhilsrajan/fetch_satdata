@@ -9,3 +9,11 @@ openpyxl
 umap-learn
 plotly
 ipywidgets
+
+git+https://github.com/nikhilsrajan/rsutils
+git+https://github.com/nikhilsrajan/cdseutils
+
+git+https://github.com/nikhilsrajan/STAC-Downloader
+
+geopandas
+planetary-computer
