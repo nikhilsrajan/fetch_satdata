@@ -20,3 +20,10 @@ Documentation: https://docs.google.com/document/d/1p8PMAvoggr-aegwUBtVI-NI8M40hp
     source [env-name]/bin/activate
     pip install -e .
     ```
+
+
+## Running scripts
+
+```
+python -m scripts.[script-filename-without-.py] [CLI]
+```

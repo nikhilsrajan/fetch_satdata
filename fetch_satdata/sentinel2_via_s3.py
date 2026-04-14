@@ -4,9 +4,6 @@ import datetime
 import sentinelhub
 import logging
 
-import sys
-sys.path.append('..')
-
 import cdseutils.mydataclasses
 import cdseutils.utils
 import cdseutils.constants
@@ -174,6 +171,8 @@ def chunkwise_download_files_and_update_catalog(
             f'- Overwrite: {download_overwrite_count}\n'
             f'- Failed: {download_failed_count}'
         )
+    
+    return downloads_done
 
 
 def download_sentinel2_tiles(

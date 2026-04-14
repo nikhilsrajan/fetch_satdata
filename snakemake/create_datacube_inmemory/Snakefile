@@ -29,6 +29,7 @@ enddates = {}
 export_folderpaths = {}
 mosaic_days = {}
 scl_mask_classes = {}
+bands = {}
 final_outputs = []
 
 START_OUTFILENAME = 'start.txt' # creating this to keep track of how long it took for each datacube to get generated
@@ -49,6 +50,7 @@ for index, row in input_df.iterrows():
     export_folderpaths[final_output] = export_folderpath
     mosaic_days[final_output] = row['mosaic_days']
     scl_mask_classes[final_output] = row['scl_mask_classes']
+    bands[final_output] = row['bands']
 
     final_outputs.append(final_output)
 
@@ -70,6 +72,7 @@ rule run:
         _export_folderpath = lambda wc: export_folderpaths[wc.final_output],
         _mosaic_days = lambda wc: mosaic_days[wc.final_output],
         _scl_mask_classes = lambda wc: scl_mask_classes[wc.final_output],
+        _bands = lambda wc: bands[wc.final_output],
         _njobs = njobs,
         _njobs_load_images = njobs_load_images
 
@@ -81,7 +84,7 @@ rule run:
         create_a_blank_file(params._start_output)
 
         shell(
-            "python ../../scripts/create_datacube_inmemory_single.py "
+            "python -m scripts.create_datacube_inmemory_single "
             "{params._shapefilepath} "
             "{params._catalog_filepath} "
             "\"{params._startdate}\" "
@@ -89,6 +92,7 @@ rule run:
             "{params._export_folderpath} "
             "--mosaic-days {params._mosaic_days} "
             "--scl-mask-classes {params._scl_mask_classes} "
+            "--bands {params._bands} "
             "--njobs {params._njobs} "
             "--njobs-load-images {params._njobs_load_images} "
             "--verbose"

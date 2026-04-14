@@ -1,0 +1,39 @@
+import pandas as pd
+import os
+
+
+input_df = pd.read_csv(config['input_csv'])
+
+datacube_folderpaths = {}
+final_outputs = []
+
+FINAL_OUTFILENAME = 'output.tif'
+
+
+for index, row in input_df.iterrows():    
+    final_output = row['output_filepath']
+    datacube_folderpaths[final_output] = row['datacube_folderpath']
+    final_outputs.append(final_output)
+
+
+rule all:
+    input:
+        expand('{final_output}', final_output=final_outputs)
+
+rule run:
+    output:
+        _final_output = '{final_output}'
+
+    params:
+        _datacube_folderpath = lambda wc: datacube_folderpaths[wc.final_output],
+        _output_filepath = lambda wc: wc.final_output
+
+    threads: 1
+
+    run:
+        shell(
+            "python -m scripts.demo_model_deploy "
+            "{params._datacube_folderpath} "
+            "{params._output_filepath}"
+        )
+    

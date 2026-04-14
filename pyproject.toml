@@ -1,0 +1,35 @@
+[project]
+name = "fetch_satdata"
+version = "0.1.0"
+description = "Downloading satellite data and creating datacubes."
+authors = [{ name = "Nikhil Sasi Rajan", email = "nikhilsasirajan@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "paramiko",
+    "s2cloudless",
+    "colorlog",
+    "snakemake",
+    "pulp==2.7.0",
+    "memory_profiler",
+    "rasterstats",
+    "openpyxl",
+    "umap-learn",
+    "plotly",
+    "ipywidgets",
+
+    "rsutils @ git+https://github.com/nikhilsrajan/rsutils@main",
+    "cdseutils @ git+https://github.com/nikhilsrajan/cdseutils@main",
+    "stac_downloader @ git+https://github.com/nikhilsrajan/STAC-Downloader@main",
+
+    "geopandas",
+    "planetary-computer",
+    "rio-cogeo",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["fetch_satdata", "scripts"]

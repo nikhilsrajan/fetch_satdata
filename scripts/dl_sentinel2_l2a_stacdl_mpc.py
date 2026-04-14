@@ -6,6 +6,7 @@ import shapely
 import shutil
 import geopandas as gpd
 import pandas as pd
+import multiprocessing as mp
 
 import planetary_computer
 
@@ -74,6 +75,7 @@ def get_new_filepaths(
         filepaths[asset] = os.path.join(output_folder, item_id, f'{asset}.{extension}')
     return filepaths
 
+
 def get_asset_filepaths_df(
     items,
     assets,
@@ -123,7 +125,90 @@ def move_assets(
         shutil.move(cur_filepath, new_filepath)
 
 
-def main():
+def main(
+    raster_assets,
+    geometry_path,
+    start_date,
+    end_date,
+    max_cloud_cover,
+    output_folderpath,
+    overwrite = False,
+    num_workers = mp.cpu_count() - 2,
+    catalog_filepath = None,
+):
+    MODIFIER = planetary_computer.sign # Required from MPC
+
+    gdf = gpd.read_file(geometry_path)
+
+    stac_downloader = STACDownloader(
+        catalog_url = STACK_CATALOG_URL, 
+        logger = logger, 
+        stac_item_modifier = MODIFIER,
+    )
+
+    try:
+        geometry = prepare_geometry(gdf)
+        items = stac_downloader.query_catalog(
+            collection_name=STAC_COLLECTION_NAME,
+            start_date=start_date,
+            end_date=end_date,
+            geometry=geometry,
+            query={"eo:cloud_cover": {"lt": max_cloud_cover}},
+        )
+    except Exception as e:
+        # Try using bounding boxes instead of exact polygon to reduce size.
+        # This is a typical reason why the requests fails.
+        geometry = prepare_geometry(gdf, enveloped=True)
+        items = stac_downloader.query_catalog(
+            collection_name=STAC_COLLECTION_NAME,
+            start_date=start_date,
+            end_date=end_date,
+            geometry=geometry,
+            query={"eo:cloud_cover": {"lt": max_cloud_cover}},
+        )
+
+    asset_filepaths_df = get_asset_filepaths_df(
+        items = items,
+        assets = raster_assets,
+        output_folder = output_folderpath,
+    )
+
+    logger.info("Starting download of items...")
+    os.makedirs(output_folderpath, exist_ok=True)
+    _ = stac_downloader.download_items(
+        items = items,
+        raster_assets = [],
+        file_assets = raster_assets,
+        mask_assets = [],
+        output_folder = output_folderpath,
+        overwrite = overwrite,
+        resolution = 10,
+        resampling_spec = None,
+        num_workers = num_workers,
+    )
+
+    move_assets(
+        cur_filepaths = asset_filepaths_df['current filepath'],
+        new_filepaths = asset_filepaths_df['new filepath'],
+        ignore_missing = True,
+    )
+
+    catalog_gdf = get_catalog_gdf(
+        items = items,
+        assets = raster_assets,
+        output_folder = output_folderpath,
+        extension = 'tif',
+    )
+
+    if catalog_filepath is None:
+        catalog_filepath = os.path.join(output_folderpath, 'catalog.geojson')
+
+    catalog_gdf.to_file(catalog_filepath)
+
+    print(f'Catalog saved at: {catalog_filepath}')
+
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         prog = 'python dl_sentinel2_l2a_stacdl_mpc.py',
         description = (
@@ -154,75 +239,13 @@ def main():
 
     NUM_WORKERS = args.njobs  # Number of parallel workers for downloading
 
-    MODIFIER = planetary_computer.sign # Required from MPC
-
-    gdf = gpd.read_file(GEOMETRY_PATH)
-
-    stac_downloader = STACDownloader(
-        catalog_url = STACK_CATALOG_URL, 
-        logger = logger, 
-        stac_item_modifier = MODIFIER,
-    )
-
-    try:
-        geometry = prepare_geometry(gdf)
-        items = stac_downloader.query_catalog(
-            collection_name=STAC_COLLECTION_NAME,
-            start_date=START_DATE,
-            end_date=END_DATE,
-            geometry=geometry,
-            query={"eo:cloud_cover": {"lt": MAX_CLOUD_COVER}},
-        )
-    except Exception as e:
-        # Try using bounding boxes instead of exact polygon to reduce size.
-        # This is a typical reason why the requests fails.
-        geometry = prepare_geometry(gdf, enveloped=True)
-        items = stac_downloader.query_catalog(
-            collection_name=STAC_COLLECTION_NAME,
-            start_date=START_DATE,
-            end_date=END_DATE,
-            geometry=geometry,
-            query={"eo:cloud_cover": {"lt": MAX_CLOUD_COVER}},
-        )
-
-    asset_filepaths_df = get_asset_filepaths_df(
-        items = items,
-        assets = RASTER_ASSETS,
-        output_folder = OUTPUT_FOLDER,
-    )
-
-    logger.info("Starting download of items...")
-    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-    _ = stac_downloader.download_items(
-        items = items,
-        raster_assets = [],
-        file_assets = RASTER_ASSETS,
-        mask_assets = [],
-        output_folder = OUTPUT_FOLDER,
+    main(
+        raster_assets = RASTER_ASSETS,
+        geometry_path = GEOMETRY_PATH,
+        start_date = START_DATE,
+        end_date = END_DATE,
+        max_cloud_cover = MAX_CLOUD_COVER,
+        output_folderpath = OUTPUT_FOLDER,
         overwrite = OVERWRITE,
-        resolution = 10,
-        resampling_spec = None,
         num_workers = NUM_WORKERS,
     )
-
-    move_assets(
-        cur_filepaths = asset_filepaths_df['current filepath'],
-        new_filepaths = asset_filepaths_df['new filepath'],
-        ignore_missing = True,
-    )
-
-    catalog_gdf = get_catalog_gdf(
-        items = items,
-        assets = RASTER_ASSETS,
-        output_folder = OUTPUT_FOLDER,
-        extension = 'tif',
-    )
-
-    catalog_filepath = os.path.join(OUTPUT_FOLDER, 'catalog.geojson')
-    catalog_gdf.to_file(catalog_filepath)
-
-    print(f'Catalog saved at: {catalog_filepath}')
-
-
-if __name__ == '__main__':
-    main()

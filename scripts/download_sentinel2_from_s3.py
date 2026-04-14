@@ -6,7 +6,64 @@ import sentinelhub
 from . import config
 import fetch_satdata.sentinel2_via_s3 as sentinel2_via_s3
 
+import cdseutils.mydataclasses
 import cdseutils.utils
+import cdseutils.constants
+
+
+VALID_LEVELS = ['l1c', 'l2a']
+
+
+def main(
+    cdse_creds:cdseutils.mydataclasses.Credentials,
+    roi_filepath:str,
+    startdate:datetime.datetime,
+    enddate:datetime.datetime,
+    upper_limit_for_number_of_tiles:int,
+    root_folderpath:str,
+    sentinel2_local_catalog_filepath = None,
+    chunksize_for_download_and_update_catalog = 100,
+    level:str = 'l2a',
+    bands:str = 'all',
+):
+    if sentinel2_local_catalog_filepath is None:
+        sentinel2_local_catalog_filepath = os.path.join(root_folderpath, 'catalog_sentinel-2.geojson')
+
+    level = str(level).lower()
+    if level not in VALID_LEVELS:
+        raise ValueError(f'Invalid level = {level}. level must be from {VALID_LEVELS}')
+    
+    if level == 'l1c':
+        satellite = cdseutils.constants.Bands.S2L1C.NAME
+        if bands == 'all':
+            bands = cdseutils.constants.Bands.S2L1C.ALL
+        collection = sentinelhub.DataCollection.SENTINEL2_L1C
+    elif level == 'l2a':
+        satellite = cdseutils.constants.Bands.S2L2A.NAME
+        if bands == 'all':
+            bands = cdseutils.constants.Bands.S2L2A.ALL
+        # bands = ['B04', 'B08', 'SCL']
+        collection = sentinelhub.DataCollection.SENTINEL2_L2A
+    else:
+        raise NotImplementedError(f'level = {level}')
+    
+    successful_download_count, total_download_count \
+    = sentinel2_via_s3.download_sentinel2_tiles(
+        cdse_creds = cdse_creds,
+        collection = collection,
+        satellite = satellite,
+        bands = bands,
+        sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
+        catalog_save_folderpath = config.FOLDERPATH_FETCH_CATALOG_CACHE,
+        root_download_folderpath = root_folderpath,
+        roi_filepath = roi_filepath,
+        startdate = startdate,
+        enddate = enddate,
+        upper_limit_for_number_of_tiles = upper_limit_for_number_of_tiles,
+        chunksize_for_download_and_update_catalog = chunksize_for_download_and_update_catalog,
+    )
+
+    return successful_download_count, total_download_count
 
 
 if __name__ == '__main__':
@@ -17,8 +74,6 @@ if __name__ == '__main__':
         ),
         epilog = f"--- Send your complaints to {','.join(config.MAINTAINERS)} ---",
     )
-
-    VALID_LEVELS = ['l1c', 'l2a']
 
     parser.add_argument('cdse_creds_json', help='/path/to/cdse_credentials.json')
     parser.add_argument('roi_filepath', help='/path/to/shapefile')
@@ -40,37 +95,14 @@ if __name__ == '__main__':
 
     root_folderpath = args.folderpath
 
-    sentinel2_local_catalog_filepath = os.path.join(root_folderpath, 'catalog_sentinel-2.geojson')
-
-    level = str(args.level).lower()
-    if level not in VALID_LEVELS:
-        raise ValueError(f'Invalid level = {level}. level must be from {VALID_LEVELS}')
-    
-    if level == 'l1c':
-        satellite = cdseutils.constants.Bands.S2L1C.NAME
-        bands = cdseutils.constants.Bands.S2L1C.ALL
-        collection = sentinelhub.DataCollection.SENTINEL2_L1C
-    elif level == 'l2a':
-        satellite = cdseutils.constants.Bands.S2L2A.NAME
-        bands = cdseutils.constants.Bands.S2L2A.ALL
-        # bands = ['B04', 'B08', 'SCL']
-        collection = sentinelhub.DataCollection.SENTINEL2_L2A
-    else:
-        raise NotImplementedError(f'level = {level}')
-    
-
-    successful_download_count, total_download_count \
-    = sentinel2_via_s3.download_sentinel2_tiles(
+    main(
         cdse_creds = cdse_creds,
-        collection = collection,
-        satellite = satellite,
-        bands = bands,
-        sentinel2_local_catalog_filepath = sentinel2_local_catalog_filepath,
-        catalog_save_folderpath = config.FOLDERPATH_FETCH_CATALOG_CACHE,
-        root_download_folderpath = root_folderpath,
         roi_filepath = roi_filepath,
         startdate = startdate,
         enddate = enddate,
         upper_limit_for_number_of_tiles = upper_limit_for_number_of_tiles,
+        root_folderpath = root_folderpath,
         chunksize_for_download_and_update_catalog = chunksize_for_download_and_update_catalog,
+        level = args.level,
+        bands = 'all',
     )

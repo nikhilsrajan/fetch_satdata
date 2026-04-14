@@ -587,7 +587,7 @@ def flatten_catalog_gdf(
         'area_contribution': [],
     }
 
-    raster_exts = ['.jp2', '.tif']
+    raster_exts = ['.jp2', '.tif', '.tiff']
 
     for index, row in catalog_gdf.iterrows():
         tile_id = row['id']
@@ -597,17 +597,19 @@ def flatten_catalog_gdf(
         area_contribution = row['area_contribution']
         
         for file in row['files'].split(','):
+            band = None
             for raster_ext in raster_exts:
                 if file.endswith(raster_ext):
                     band = file.removesuffix(raster_ext)
                     break
-
-            data['id'].append(tile_id)
-            data['filepath'].append(os.path.join(folderpath, file))
-            data['band'].append(band)
-            data['timestamp'].append(timestamp)
-            data['geometry'].append(geometry)
-            data['area_contribution'].append(area_contribution)
+            
+            if band is not None:
+                data['id'].append(tile_id)
+                data['filepath'].append(os.path.join(folderpath, file))
+                data['band'].append(band)
+                data['timestamp'].append(timestamp)
+                data['geometry'].append(geometry)
+                data['area_contribution'].append(area_contribution)
 
     flattened_catalog_gdf = gpd.GeoDataFrame(data = data, crs = catalog_gdf.crs)
 
@@ -670,7 +672,7 @@ if __name__ == '__main__':
     export_folderpath = str(args.export_folderpath)
     mosaic_days = int(args.mosaic_days)
     scl_mask_classes = [int(v) for v in args.scl_mask_classes.split(',')]
-    bands = args.scl_mask_classes.split(',')
+    bands = args.bands.split(',')
     njobs = args.njobs
     njobs_load_images = args.njobs_load_images
         
