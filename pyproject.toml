@@ -5,6 +5,7 @@ description = "Downloading satellite data and creating datacubes."
 authors = [{ name = "Nikhil Sasi Rajan", email = "nikhilsasirajan@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.10"
+
 dependencies = [
     "paramiko",
     "s2cloudless",
@@ -31,5 +32,8 @@ dependencies = [
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["fetch_satdata", "scripts", "snakemake"]
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"fetch_satdata" = ["snakefiles/**/*"]

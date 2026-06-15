@@ -6,7 +6,7 @@ import os
 import rasterio.transform
 import pandas as pd
 
-from . import config
+import fetch_satdata.config as config
 
 
 PLANET_NODATA = 0

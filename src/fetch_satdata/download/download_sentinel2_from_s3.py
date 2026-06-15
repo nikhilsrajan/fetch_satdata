@@ -3,8 +3,8 @@ import datetime
 import argparse
 import sentinelhub
 
-from . import config
-import fetch_satdata.sentinel2_via_s3 as sentinel2_via_s3
+import fetch_satdata.config as config
+import fetch_satdata.core.sentinel2_via_s3 as sentinel2_via_s3
 
 import cdseutils.mydataclasses
 import cdseutils.utils

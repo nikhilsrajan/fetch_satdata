@@ -10,7 +10,7 @@ import gc
 import rasterio.io
 import rasterio.merge
 
-import config
+import fetch_satdata.config as config
 
 import sys
 sys.path.append(os.path.join(CUR_DIR, '..'))

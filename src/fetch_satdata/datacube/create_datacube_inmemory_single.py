@@ -9,15 +9,14 @@ import warnings
 import rasterio.warp
 import argparse
 
-from .init_logger import get_logger
-
 import cdseutils.constants
 import rsutils.modify_images
 
-import fetch_satdata.exceptions as exceptions
-import fetch_satdata.datacube_ops as datacube_ops
+from fetch_satdata.core.init_logger import get_logger
+import fetch_satdata.core.exceptions as exceptions
+import fetch_satdata.core.datacube_ops as datacube_ops
 
-from . import config
+import fetch_satdata.config as config
 
 import time
 

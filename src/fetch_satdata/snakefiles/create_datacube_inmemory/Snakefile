@@ -84,7 +84,7 @@ rule run:
         create_a_blank_file(params._start_output)
 
         shell(
-            "python -m scripts.create_datacube_inmemory_single "
+            "python -m fetch_satdata.datacube.create_datacube_inmemory_single "
             "{params._shapefilepath} "
             "{params._catalog_filepath} "
             "\"{params._startdate}\" "

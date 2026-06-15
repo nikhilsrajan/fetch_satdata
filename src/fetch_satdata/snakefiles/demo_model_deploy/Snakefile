@@ -32,7 +32,7 @@ rule run:
 
     run:
         shell(
-            "python -m scripts.demo_model_deploy "
+            "python -m fetch_satdata.model.demo_model_deploy "
             "{params._datacube_folderpath} "
             "{params._output_filepath}"
         )

@@ -10,6 +10,7 @@ MAINTAINERS = [
 ]
 
 CURRENT_DIRECTORY = os.path.dirname(__file__)
+DATA_DIRECTORY = os.path.join(CURRENT_DIRECTORY, '../../data')
 
 
 """
@@ -47,12 +48,12 @@ Folder structure:
 """
 
 
-FOLDERPATH_SATELLITE = os.path.join(CURRENT_DIRECTORY, '../data/satellite')
-FOLDERPATH_FETCH_CATALOG_CACHE = os.path.join(CURRENT_DIRECTORY, '../data/fetch_catalog_cache')
-FOLDERPATH_DATACUBES = os.path.join(CURRENT_DIRECTORY, '../data/datacubes')
-FOLDERPATH_DATACUBES_S2L1C = os.path.join(CURRENT_DIRECTORY, '../data/datacubes/sentinel-2-l1c')
-FOLDERPATH_DATACUBES_S2L2A = os.path.join(CURRENT_DIRECTORY, '../data/datacubes/sentinel-2-l2a')
-FOLDERPATH_ESA = os.path.join(CURRENT_DIRECTORY, '../data/esa')
+FOLDERPATH_SATELLITE = os.path.join(DATA_DIRECTORY, 'satellite')
+FOLDERPATH_FETCH_CATALOG_CACHE = os.path.join(DATA_DIRECTORY, 'fetch_catalog_cache')
+FOLDERPATH_DATACUBES = os.path.join(DATA_DIRECTORY, 'datacubes')
+FOLDERPATH_DATACUBES_S2L1C = os.path.join(DATA_DIRECTORY, 'datacubes/sentinel-2-l1c')
+FOLDERPATH_DATACUBES_S2L2A = os.path.join(DATA_DIRECTORY, 'datacubes/sentinel-2-l2a')
+FOLDERPATH_ESA = os.path.join(DATA_DIRECTORY, 'esa')
 
 FILEPATH_SATELLITE_CATALOG_DB = os.path.join(FOLDERPATH_SATELLITE, 'catalog.db')
 FILEPATH_DATACUBE_CATALOG_DB = os.path.join(FOLDERPATH_DATACUBES, 'catalog.db')

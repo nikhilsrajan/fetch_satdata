@@ -7,7 +7,7 @@ import multiprocessing as mp
 import functools
 import datetime
 
-from . import config
+import fetch_satdata.config as config
 
 
 COL_ID = 'id'
